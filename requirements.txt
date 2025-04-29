@@ -1,1 +1,2 @@
 fastapi[standard]
+python-memcached == 1.62
