@@ -5,7 +5,7 @@ class URLRequest(BaseModel):
     url: HttpUrl
 
 class URLResponse(BaseModel):
-    url: HttpUrl
+    domain: str
     malicious: bool
     info: Optional[str]
     source: Optional[str]

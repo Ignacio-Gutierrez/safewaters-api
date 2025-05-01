@@ -8,7 +8,7 @@ from app.models.url_abuseipdb import AbuseIPDBResponse
 ABUSEIPDB_API_KEY = settings.ABUSEIPDB_API_KEY
 ABUSEIPDB_API_URL = settings.ABUSEIPDB_API_URL
 
-async def check_abuseipdb(url: str, ip_address: str) -> URLResponse:
+async def check_abuseipdb(domain: str, ip_address: str) -> URLResponse:
     """
     Consulta AbuseIPDB de forma asincrónica con una IP y devuelve un objeto URLResponse.
     """
@@ -30,7 +30,7 @@ async def check_abuseipdb(url: str, ip_address: str) -> URLResponse:
             data = parsed.data
 
             return URLResponse(
-                url=url,
+                domain=domain,
                 malicious=data.abuseConfidenceScore >= 50,
                 info=f"IP {data.ipAddress} reportada {data.totalReports} vez/veces. "
                      f"Score: {data.abuseConfidenceScore}. Uso: {data.usageType or 'Desconocido'}.",
@@ -39,7 +39,7 @@ async def check_abuseipdb(url: str, ip_address: str) -> URLResponse:
 
     except httpx.RequestError as e:
         return URLResponse(
-            url=url,
+            domain=domain,
             malicious=False,
             info=f"Error de conexión: {str(e)}",
             source="AbuseIPDB"
@@ -47,7 +47,7 @@ async def check_abuseipdb(url: str, ip_address: str) -> URLResponse:
 
     except httpx.HTTPStatusError as e:
         return URLResponse(
-            url=url,
+            domain=domain,
             malicious=False,
             info=f"Error HTTP {e.response.status_code}: {e.response.text}",
             source="AbuseIPDB"
@@ -55,7 +55,7 @@ async def check_abuseipdb(url: str, ip_address: str) -> URLResponse:
 
     except Exception as e:
         return URLResponse(
-            url=url,
+            domain=domain,
             malicious=False,
             info=f"Error inesperado: {str(e)}",
             source="AbuseIPDB"
