@@ -33,7 +33,8 @@ async def check_abuseipdb(domain: str, ip_address: str) -> URLResponse:
                 domain=domain,
                 malicious=data.abuseConfidenceScore >= 50,
                 info=f"IP {data.ipAddress} reportada {data.totalReports} vez/veces. "
-                     f"Score: {data.abuseConfidenceScore}. Uso: {data.usageType or 'Desconocido'}.",
+                     f"Score: {data.abuseConfidenceScore}. Uso: {data.usageType or 'Desconocido'}. "
+                     f"Fuente: AbuseIPDB",
                 source="AbuseIPDB"
             )
 
