@@ -1,13 +1,19 @@
 from urllib.parse import urlparse
 import socket
 
-async def get_ip_from_url(url: str) -> str:
+def get_domain_from_url(url: str) -> str:
     """
-    Dada una URL, obtiene la IP asociada mediante resolución DNS.
+    Extrae el dominio (hostname) de una URL.
+    """
+    return urlparse(url).hostname
+
+
+async def get_ip_from_url(domain: str) -> str:
+    """
+    Dada una Dominio, devuelve su dirección IP.
     """
     try:
-        hostname = urlparse(url).hostname
-        ip_address = socket.gethostbyname(hostname)
+        ip_address = socket.gethostbyname(domain)
         return ip_address
     except Exception as e:
-        raise ValueError(f"No se pudo resolver la IP para la URL {url}: {str(e)}")
+        raise ValueError(f"No se pudo resolver la IP para el dominio {domain}: {str(e)}")

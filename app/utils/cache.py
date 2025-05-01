@@ -9,9 +9,9 @@ MEMCACHED_TIMEOUT = settings.MEMCACHED_TIMEOUT
 
 client = memcache.Client([f"{MEMCACHED_HOST}:{MEMCACHED_PORT}"], debug=0)
 
-def get_from_cache(url: str) -> dict | None:
+def get_from_cache(domain: str) -> dict | None:
     """Intenta obtener los datos de Memcached y los deserializa."""
-    cached_data = client.get(str(url).encode("utf-8"))
+    cached_data = client.get(str(domain).encode("utf-8"))
     if cached_data:
         try:
             return json.loads(cached_data)
@@ -19,12 +19,11 @@ def get_from_cache(url: str) -> dict | None:
             return None
     return None
 
-def set_to_cache(url: str, malicious: bool, info: str):
+def set_to_cache(domain: str, malicious: bool, info: str):
     """Guarda solo la información relevante en Memcached usando la URL como clave."""
     data = {
         "malicious": malicious,
         "info": info
     }
-    # Serializar los datos como JSON y guardarlos en Memcached
     cached_data = json.dumps(data)
-    client.set(url, cached_data, time=MEMCACHED_TIMEOUT)
+    client.set(domain, cached_data, time=MEMCACHED_TIMEOUT)
