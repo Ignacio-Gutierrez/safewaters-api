@@ -26,7 +26,7 @@ async def check_url(url: str) -> dict:
         abuseipdb_result = await check_abuseipdb(domain, ip_address)
 
         # 3. Guardar en caché si hay información relevante
-        if abuseipdb_result.info and "reportada" in abuseipdb_result.info:
+        if abuseipdb_result.info and not "Error" in abuseipdb_result.info:
             set_to_cache(domain, abuseipdb_result.malicious, abuseipdb_result.info)
   
         # 4. Devolver el resultado
