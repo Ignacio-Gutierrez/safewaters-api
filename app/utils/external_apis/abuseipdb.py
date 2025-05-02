@@ -1,6 +1,5 @@
 from app.config import settings
 import httpx
-from pydantic import BaseModel, HttpUrl
 
 from app.models.urls import URLResponse
 from app.models.url_abuseipdb import AbuseIPDBResponse
