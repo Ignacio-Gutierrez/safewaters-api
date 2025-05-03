@@ -44,7 +44,18 @@ async def check_url(url: str) -> dict:
         }
 
     # 4. Consultar AbuseIPDB (requiere IP)
-    ip_address = await get_ip_from_url(url)
+    try:
+        ip_address = await get_ip_from_url(domain)
+    except Exception as e:
+        # Si no se puede obtener la IP, se considera seguro
+        set_to_cache(domain, False, "No se pudo obtener la IP del dominio.")
+        return {
+            "domain": domain,
+            "malicious": False,
+            "info": "No se pudo obtener la IP del dominio.",
+            "source": "Multi-API"
+        }
+
     abuseipdb_result = await check_abuseipdb(domain, ip_address)
     if abuseipdb_result.malicious:
         set_to_cache(domain, abuseipdb_result.malicious, abuseipdb_result.info)
