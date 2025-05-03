@@ -7,5 +7,5 @@ class URLRequest(BaseModel):
 class URLResponse(BaseModel):
     domain: str
     malicious: bool
-    info: Optional[str]
-    source: Optional[str]
+    info: str
+    source: str
