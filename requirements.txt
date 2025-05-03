@@ -1,3 +1,4 @@
+# SafeWaters API - v1.0.0-dev
 fastapi[standard]
 python-memcached == 1.62
 pydantic-settings
