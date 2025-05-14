@@ -1,3 +1,9 @@
+"""
+Módulo de servicios para la API de SafeWaters.
+
+Este módulo contiene la lógica de negocio para las operaciones de la API,
+como la verificación de URLs contra múltiples fuentes de inteligencia de amenazas.
+"""
 from app.utils.cache import get_from_cache, set_to_cache
 from app.utils.external_apis.abuseipdb import check_abuseipdb
 from app.utils.external_apis.threatfox import check_threatfox
@@ -5,9 +11,24 @@ from app.utils.external_apis.urlscanio import check_urlscanio
 from app.utils.utils import get_ip_from_url, get_domain_from_url
 
 async def check_url(url: str) -> dict:
-    """
-    Verifica si una URL es maliciosa consultando el caché, AbuseIPDB, URLScan.io y ThreatFox.
-    Devuelve un diccionario con información estandarizada sobre la peligrosidad.
+    """Verifica si una URL es maliciosa consultando varias fuentes.
+
+    Esta función sigue los siguientes pasos:
+    1. Revisa la caché para obtener resultados previos para el dominio.
+    2. Si no está en caché, consulta URLScan.io.
+    3. Si URLScan.io no lo marca como malicioso, consulta ThreatFox.
+    4. Si ThreatFox no lo marca como malicioso, obtiene la IP del dominio y consulta AbuseIPDB.
+    5. Guarda el resultado final en caché.
+
+    Args:
+        url (str): La URL completa a verificar.
+
+    Returns:
+        dict: Un diccionario con la siguiente estructura:
+            * ``domain`` (str): El dominio extraído de la URL.
+            * ``malicious`` (bool): True si la URL se considera maliciosa, False en caso contrario.
+            * ``info`` (str): Información adicional sobre el resultado.
+            * ``source`` (str): La fuente que determinó el estado (Cache, URLScan.io, etc.).
     """
     domain = get_domain_from_url(url)
 

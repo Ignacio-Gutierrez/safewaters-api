@@ -1,3 +1,10 @@
+"""
+Módulo para interactuar con la API de AbuseIPDB.
+
+Este módulo proporciona funciones para consultar la API de AbuseIPDB y verificar
+la reputación de una dirección IP. Utiliza la configuración de la aplicación
+para obtener la clave API y la URL base del servicio.
+"""
 from app.config import settings
 import httpx
 
@@ -10,6 +17,19 @@ ABUSEIPDB_API_URL = settings.ABUSEIPDB_API_URL
 async def check_abuseipdb(domain: str, ip_address: str) -> URLResponse:
     """
     Consulta AbuseIPDB de forma asincrónica con una IP y devuelve un objeto URLResponse.
+
+    Realiza una solicitud GET a la API de AbuseIPDB para obtener información sobre la IP
+    proporcionada. Determina si la IP es maliciosa basándose en el ``abuseConfidenceScore``.
+
+    :param domain: El dominio asociado a la IP (utilizado para la respuesta).
+    :type domain: str
+    :param ip_address: La dirección IP a verificar.
+    :type ip_address: str
+    :return: Un objeto :class:`~app.models.urls.URLResponse` con el resultado de la verificación.
+             Si la consulta es exitosa, ``malicious`` será ``True`` si el ``abuseConfidenceScore >= 50``.
+             En caso de error (conexión, HTTP, u otro), ``malicious`` será ``False`` y ``info``
+             contendrá el mensaje de error.
+    :rtype: app.models.urls.URLResponse
     """
     querystring = {
         'ipAddress': ip_address,
@@ -41,7 +61,7 @@ async def check_abuseipdb(domain: str, ip_address: str) -> URLResponse:
         return URLResponse(
             domain=domain,
             malicious=False,
-            info=f"Error de conexión: {str(e)}",
+            info=f"Error de conexión con AbuseIPDB: {str(e)}",
             source="AbuseIPDB"
         )
 
@@ -49,7 +69,7 @@ async def check_abuseipdb(domain: str, ip_address: str) -> URLResponse:
         return URLResponse(
             domain=domain,
             malicious=False,
-            info=f"Error HTTP {e.response.status_code}: {e.response.text}",
+            info=f"Error HTTP {e.response.status_code} de AbuseIPDB: {e.response.text}",
             source="AbuseIPDB"
         )
 
@@ -57,6 +77,6 @@ async def check_abuseipdb(domain: str, ip_address: str) -> URLResponse:
         return URLResponse(
             domain=domain,
             malicious=False,
-            info=f"Error inesperado: {str(e)}",
+            info=f"Error inesperado al procesar respuesta de AbuseIPDB: {str(e)}",
             source="AbuseIPDB"
         )
