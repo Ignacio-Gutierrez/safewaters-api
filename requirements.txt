@@ -3,3 +3,8 @@ fastapi[standard]
 python-memcached == 1.62
 pydantic-settings
 httpx
+
+# SafeWaters API - v1.0.0-documentation
+sphinx
+sphinx-rtd-theme
+sphinx-autodoc-typehints

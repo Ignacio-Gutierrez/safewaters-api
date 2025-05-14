@@ -1,3 +1,9 @@
+"""
+Módulo de utilidades.
+
+Este módulo proporciona funciones auxiliares generales, como la extracción
+de dominios de URLs y la resolución de direcciones IP.
+"""
 from urllib.parse import urlparse
 import socket
 import asyncio
@@ -5,13 +11,30 @@ import asyncio
 def get_domain_from_url(url: str) -> str:
     """
     Extrae el dominio (hostname) de una URL.
+
+    :param url: La URL completa de la cual extraer el dominio.
+    :type url: str
+    :return: El nombre de host (dominio) extraído de la URL.
+             Retorna ``None`` si la URL no tiene un hostname válido.
+    :rtype: str
     """
-    return urlparse(url).hostname
+    parsed_url = urlparse(url)
+    return parsed_url.hostname
 
 
 async def get_ip_from_url(domain: str) -> str:
     """
-    Dada una Dominio, devuelve su dirección IP de forma asíncrona.
+    Dada un dominio, devuelve su dirección IP de forma asíncrona.
+
+    Intenta resolver la dirección IP del dominio especificado.
+    Prioriza la primera dirección IP encontrada.
+
+    :param domain: El nombre de dominio para el cual obtener la IP.
+    :type domain: str
+    :return: La dirección IP del dominio.
+    :rtype: str
+    :raises ValueError: Si ocurre un error durante la resolución de DNS
+                        o si no se puede encontrar una dirección IP para el dominio.
     """
     try:
         loop = asyncio.get_running_loop()
