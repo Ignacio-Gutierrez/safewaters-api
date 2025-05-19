@@ -8,7 +8,7 @@ para obtener la clave API y la URL base del servicio.
 from app.config import settings
 import httpx
 
-from app.models.urls import URLResponse
+from app.schemas.urls_check import URLResponse
 from app.utils.external_api_models.abuseipdb_model import AbuseIPDBResponse
 
 ABUSEIPDB_API_KEY = settings.ABUSEIPDB_API_KEY
