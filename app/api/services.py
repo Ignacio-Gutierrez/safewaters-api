@@ -8,7 +8,7 @@ from app.utils.cache import get_from_cache, set_to_cache
 from app.utils.external_apis.abuseipdb import check_abuseipdb
 from app.utils.external_apis.threatfox import check_threatfox
 from app.utils.external_apis.urlscanio import check_urlscanio
-from app.utils.utils import get_ip_from_url, get_domain_from_url
+from app.utils.domain_utils import get_ip_from_url, get_domain_from_url
 
 async def check_url(url: str) -> dict:
     """Verifica si una URL es maliciosa consultando varias fuentes.
