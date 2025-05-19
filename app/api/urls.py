@@ -5,7 +5,7 @@ Define los endpoints de la API, actualmente solo incluye el endpoint ``/check``
 para la verificación de URLs.
 """
 from fastapi import APIRouter
-from app.models.urls import URLRequest, URLResponse
+from app.schemas.urls_check import URLRequest, URLResponse
 from app.api.services import check_url
 
 router = APIRouter()
