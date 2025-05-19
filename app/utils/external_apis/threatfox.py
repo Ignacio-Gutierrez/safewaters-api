@@ -9,7 +9,7 @@ from app.config import settings
 import httpx
 
 from app.models.urls import URLResponse
-from app.models.url_threatfox import ThreatFoxResponse
+from app.utils.external_api_models.threatfox_model import ThreatFoxResponse
 
 THREATFOX_API_KEY = settings.THREATFOX_API_KEY
 THREATFOX_API_URL = settings.THREATFOX_API_URL

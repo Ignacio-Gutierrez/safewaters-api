@@ -9,7 +9,7 @@ from app.config import settings
 import httpx
 
 from app.models.urls import URLResponse
-from app.models.url_abuseipdb import AbuseIPDBResponse
+from app.utils.external_api_models.abuseipdb_model import AbuseIPDBResponse
 
 ABUSEIPDB_API_KEY = settings.ABUSEIPDB_API_KEY
 ABUSEIPDB_API_URL = settings.ABUSEIPDB_API_URL
