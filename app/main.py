@@ -5,21 +5,30 @@ Este módulo inicializa la aplicación FastAPI, configura CORS (Cross-Origin Res
 y registra los routers de la API.
 """
 from fastapi import FastAPI
-from app.api.urls import router
+from app.api.router import api_router
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.database import engine
+from sqlmodel import SQLModel
+import app.models
 
 app = FastAPI(
     title="SafeWaters API",
-    description="API para detección de amenazas basada en consultas a servicios externos",
-    version="1.0.0"
+    description="API para detección de amenazas y control parental",
+    version="0.5.0"
 )
 """
 Instancia principal de la aplicación FastAPI.
 
 :title: SafeWaters API
-:description: API para detección de amenazas basada en consultas a servicios externos.
-:version: 1.0.0
+:description: API para detección de amenazas y control parental.
+:version: 0.5.0
 """
+
+@app.on_event("startup")
+def on_startup():
+    SQLModel.metadata.create_all(engine)
+    print("Base de datos y tablas verificadas/creadas (si no existían).")
 
 origins = [
     "*" # Permite todos los orígenes (para desarrollo)
@@ -48,7 +57,7 @@ Permite solicitudes de los orígenes especificados en la variable ``origins``,
 habilita las credenciales, y permite todos los métodos y cabeceras HTTP.
 """
 
-app.include_router(router)
+app.include_router(api_router, prefix="/api", tags=["API Endpoints"])
 """
 Inclusión del router principal de la API.
 

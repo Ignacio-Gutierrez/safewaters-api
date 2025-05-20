@@ -1,8 +1,11 @@
-# SafeWaters API - v1.0.0-dev
+# SafeWaters API - v0.5.0-dev
 fastapi[standard]
 python-memcached == 1.62
 pydantic-settings
 httpx
+
+sqlmodel
+
 
 # SafeWaters API - v1.0.0-documentation
 sphinx
