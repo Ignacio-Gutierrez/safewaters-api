@@ -6,7 +6,7 @@ para la verificación de URLs.
 """
 from fastapi import APIRouter
 from app.schemas.urls_check import URLRequest, URLResponse
-from app.api.services import check_url
+from app.api.services.urls_check_service import check_url
 
 router = APIRouter()
 """
