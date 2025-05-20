@@ -5,7 +5,8 @@ pydantic-settings
 httpx
 
 sqlmodel
-
+pyjwt
+passlib[bcrypt]
 
 # SafeWaters API - v1.0.0-documentation
 sphinx
