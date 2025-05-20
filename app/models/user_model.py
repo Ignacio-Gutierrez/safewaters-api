@@ -1,6 +1,7 @@
 from typing import List, Optional
 from sqlmodel import Field, Relationship, SQLModel
 from datetime import datetime
+from pydantic import EmailStr
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -8,7 +9,7 @@ if TYPE_CHECKING:
 
 
 class UserBase(SQLModel):
-    email: str = Field(max_length=100, unique=True, index=True, nullable=False)
+    email: EmailStr = Field(max_length=100, unique=True, index=True, nullable=False)
     nickname: str = Field(max_length=50, unique=True, index=True, nullable=False)
 
 
@@ -25,6 +26,18 @@ class User(UserBase, table=True):
 class UserCreate(UserBase):
     password: str
 
+    class Config:
+        """
+        Configuración del modelo Pydantic UserCreate.
+        Proporciona un ejemplo para la documentación de la API.
+        """
+        json_schema_extra = {
+            "example": {
+                "nickname": "testuser",
+                "email": "user@example.com",
+                "password": "aStrongPassword123!",
+            }
+        }
 
 class UserRead(UserBase):
     id: int
