@@ -57,7 +57,7 @@ Permite solicitudes de los orígenes especificados en la variable ``origins``,
 habilita las credenciales, y permite todos los métodos y cabeceras HTTP.
 """
 
-app.include_router(api_router, prefix="/api", tags=["API Endpoints"])
+app.include_router(api_router, prefix="/api")
 """
 Inclusión del router principal de la API.
 
