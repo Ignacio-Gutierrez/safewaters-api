@@ -11,6 +11,7 @@ from .endpoints.urls_check import router as urls_check_router
 from .endpoints.auth import router as auth_router
 from .endpoints.managed_profile import router as managed_profile_router
 from .endpoints.navigation_history import router as navigation_history_router
+from .endpoints.blocking_rule import router as blocking_rule_router
 
 api_router = APIRouter()
 """
@@ -55,3 +56,5 @@ Las rutas definidas en :mod:`app.api.endpoints.navigation_history.router` se añ
 al :data:`api_router` bajo el prefijo ``/navigation_history``. Estas rutas permiten
 las operaciones CRUD para el historial de navegación de los perfiles gestionados.
 """
+
+api_router.include_router(blocking_rule_router, tags=["Reglas de Bloqueo"])

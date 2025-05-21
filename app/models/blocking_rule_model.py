@@ -1,14 +1,19 @@
 from typing import Optional
 from sqlmodel import Field, Relationship, SQLModel
 from datetime import datetime
+from enum import Enum
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .managed_profile_model import ManagedProfile
 
+class RuleType(str, Enum):
+    URL_EXACTA = 'URL_EXACTA'
+    DOMINIO = 'DOMINIO'
+    PALABRA_CLAVE_URL = 'PALABRA_CLAVE_URL'
 
 class BlockingRuleBase(SQLModel):
-    rule_type: str = Field(max_length=50, nullable=False)
+    rule_type: RuleType = Field(nullable=False)
     rule_value: str = Field(max_length=255, nullable=False)
     description: Optional[str] = Field(default=None, max_length=255, nullable=True)
     is_active: bool = Field(default=True, nullable=False)
