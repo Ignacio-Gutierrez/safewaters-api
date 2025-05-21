@@ -52,6 +52,6 @@ class ManagedProfileUpdate(SQLModel):
     profile_name: Optional[str] = Field(default=None, max_length=100)
 
 
-class VincularExtensionRequest(SQLModel):
+class LinkExtensionRequest(SQLModel):
     link_code: str
     extension_instance_id: str
