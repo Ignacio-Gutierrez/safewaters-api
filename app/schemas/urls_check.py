@@ -1,4 +1,5 @@
 from pydantic import BaseModel, HttpUrl
+from typing import Optional
 
 class URLRequest(BaseModel):
     """
@@ -9,8 +10,14 @@ class URLRequest(BaseModel):
 
     :ivar url: La URL que se va a verificar. Debe ser una URL HTTP/HTTPS válida.
     :vartype url: pydantic.HttpUrl
+    :ivar extension_instance_id: El ID de instancia de la extensión que realiza la solicitud (opcional).
+    :vartype extension_instance_id: Optional[str]
+    :ivar page_title: El título de la página que se está visitando (opcional).
+    :vartype page_title: Optional[str]
     """
     url: HttpUrl
+    extension_instance_id: Optional[str] = None
+    page_title: Optional[str] = None
 
     class Config:
         """
@@ -20,7 +27,9 @@ class URLRequest(BaseModel):
         """
         json_schema_extra = {
             "example": {
-                "url": "https://phishing-site.com"
+                "url": "https://phishing-site.com",
+                "extension_instance_id": "unique-extension-id-123",
+                "page_title": "Ejemplo de Sitio de Phishing"
             }
         }
 
