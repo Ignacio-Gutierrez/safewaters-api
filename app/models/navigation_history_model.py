@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlmodel import Field, Relationship, SQLModel, Column, TEXT # , BigInteger # Descomentar si usas BigInteger
+from sqlmodel import Field, Relationship, SQLModel, Column, TEXT
 from datetime import datetime
 
 from typing import TYPE_CHECKING
