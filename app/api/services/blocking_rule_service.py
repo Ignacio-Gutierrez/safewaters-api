@@ -5,20 +5,21 @@ Este módulo proporciona funciones para crear, leer, actualizar y eliminar
 reglas de bloqueo, asegurando las comprobaciones de autorización necesarias
 basadas en la propiedad del perfil gestionado.
 """
-from typing import List, Optional
+from typing import Dict, Any,  List
 from sqlmodel import Session
 from fastapi import HTTPException, status
 
 from app.crud import crud_blocking_rule
 from app.crud import crud_managed_profile
 from app.models.blocking_rule_model import (
-    BlockingRule,
     BlockingRuleCreate,
     BlockingRuleRead,
     BlockingRuleUpdate,
+    RuleType,
 )
 from app.models.user_model import User
 
+from app.utils.domain_utils import get_domain_from_url
 
 def create_blocking_rule_for_profile_service(
     session: Session,
@@ -246,3 +247,60 @@ def delete_blocking_rule_service(
             status_code=status.HTTP_404_NOT_FOUND, detail="Regla de bloqueo no encontrada para eliminar"
         )
     return BlockingRuleRead.model_validate(deleted_rule)
+
+
+async def check_blocking_rules(
+    session: Session, profile_id: int, url: str
+) -> Dict[str, Any]:
+    """
+    Verifica si una URL dada coincide con alguna de las reglas de bloqueo
+    activas para un perfil gestionado específico.
+
+    Maneja diferentes tipos de reglas: URL_EXACTA, DOMINIO, PALABRA_CLAVE_URL.
+
+    :param session: La sesión de base de datos.
+    :type session: sqlmodel.Session
+    :param profile_id: El ID del perfil gestionado.
+    :type profile_id: int
+    :param url: La URL a verificar.
+    :type url: str
+    :return: Un diccionario con "is_blocked" (bool) y "reason" (Optional[str]).
+             "reason" detalla la regla que causó el bloqueo.
+    :rtype: Dict[str, Any]
+    """
+    active_rules = await crud_blocking_rule.get_active_blocking_rules_for_profile(
+        session=session, profile_id=profile_id
+    )
+
+    if not active_rules:
+        return {"is_blocked": False, "reason": None}
+
+    url_to_check_lower = url.lower()
+    url_domain = get_domain_from_url(url)
+    url_domain_lower = url_domain.lower() if url_domain else None
+
+    for rule in active_rules:
+        if not rule.is_active:
+            continue
+
+        rule_value_lower = rule.rule_value.lower()
+        rule_matched = False
+        reason_template = f"Bloqueado por regla de usuario: {rule.rule_type.value} - '{rule.rule_value}'"
+
+        if rule.rule_type == RuleType.DOMINIO:
+            if url_domain_lower and url_domain_lower == rule_value_lower:
+                rule_matched = True
+        elif rule.rule_type == RuleType.URL_EXACTA:
+            if url_to_check_lower == rule_value_lower:
+                rule_matched = True
+        elif rule.rule_type == RuleType.PALABRA_CLAVE_URL:
+            if rule_value_lower in url_to_check_lower:
+                rule_matched = True
+        
+        if rule_matched:
+            return {
+                "is_blocked": True,
+                "reason": reason_template
+            }
+            
+    return {"is_blocked": False, "reason": None}

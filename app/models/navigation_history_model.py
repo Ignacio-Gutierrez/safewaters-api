@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 
 class NavigationHistoryBase(SQLModel):
     visited_url: str = Field(sa_column=Column(TEXT, nullable=False))
-    page_title: Optional[str] = Field(default=None, max_length=255, nullable=True)
     was_blocked: bool = Field(default=False, nullable=False)
 
 
