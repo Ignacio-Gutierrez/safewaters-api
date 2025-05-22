@@ -36,7 +36,7 @@ async def register_new_user(
     """
     Crea un nuevo usuario (manager/padre).
 
-    Verifica si el email o nickname ya existen en la base de datos.
+    Verifica si el email o username ya existen en la base de datos.
     Valida la fortaleza de la contraseña.
     Si todas las validaciones son exitosas, crea el usuario a través del servicio de usuarios.
 
@@ -45,7 +45,7 @@ async def register_new_user(
     :param user_in: Datos del usuario a crear, validados por :class:`app.models.user_model.UserCreate`.
     :type user_in: app.models.user_model.UserCreate
     :raises HTTPException 400: Si el email ya existe.
-    :raises HTTPException 400: Si el nickname ya existe.
+    :raises HTTPException 400: Si el username ya existe.
     :raises HTTPException 400: Si la contraseña no es suficientemente fuerte.
     :return: Los datos del usuario creado, excluyendo la contraseña, según :class:`app.models.user_model.UserRead`.
     :rtype: app.models.user_model.UserRead
@@ -57,11 +57,11 @@ async def register_new_user(
             detail="Ya existe un usuario con este email.",
         )
     
-    existing_user_by_nickname = await crud_user.get_user_by_nickname(session=session, nickname=user_in.nickname)
-    if existing_user_by_nickname:
+    existing_user_by_username = await crud_user.get_user_by_username(session=session, username=user_in.username)
+    if existing_user_by_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Ya existe un usuario con este nickname.",
+            detail="Ya existe un usuario con este username.",
         )
     
     if not is_password_strong_enough(user_in.password):
@@ -85,25 +85,25 @@ async def login_for_access_token(
     """
     Inicio de sesión compatible con OAuth2 para obtener un token de acceso.
 
-    El campo ``username`` del formulario puede ser el email o el nickname del usuario.
+    El campo ``username`` del formulario puede ser el email o el username del usuario.
     Autentica al usuario y, si es exitoso, genera y devuelve un token JWT.
 
     :param session: Sesión de base de datos inyectada por dependencia.
     :type session: sqlmodel.Session
     :param form_data: Datos del formulario OAuth2 (username y password).
-                      ``form_data.username`` puede ser email o nickname.
+                      ``form_data.username`` puede ser email o username.
     :type form_data: fastapi.security.OAuth2PasswordRequestForm
-    :raises HTTPException 401: Si el email/nickname o la contraseña son incorrectos.
+    :raises HTTPException 401: Si el email/username o la contraseña son incorrectos.
     :return: Un objeto :class:`app.schemas.token.Token` conteniendo el ``access_token`` y ``token_type``.
     :rtype: app.schemas.token.Token
     """
     user = await user_service.authenticate_user(
-        session=session, email_or_nickname=form_data.username, password=form_data.password
+        session=session, email_or_username=form_data.username, password=form_data.password
     )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email/nickname o contraseña incorrectos",
+            detail="Email/username o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
     

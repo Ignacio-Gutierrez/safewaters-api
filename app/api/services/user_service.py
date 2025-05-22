@@ -38,28 +38,28 @@ async def create_user(session: Session, user_in: UserCreate) -> User:
     
     return await crud_user.create_user_db(session=session, user_to_create=db_user_instance)
 
-async def authenticate_user(session: Session, email_or_nickname: str, password: str) -> Optional[User]:
+async def authenticate_user(session: Session, email_or_username: str, password: str) -> Optional[User]:
     """
-    Autentica a un usuario utilizando su email o nickname y su contraseña.
+    Autentica a un usuario utilizando su email o username y su contraseña.
 
     Primero intenta encontrar al usuario por email. Si no se encuentra, intenta
-    buscarlo por nickname. Si se encuentra un usuario, verifica la contraseña
+    buscarlo por username. Si se encuentra un usuario, verifica la contraseña
     proporcionida contra el hash almacenado.
 
     :param session: La sesión de base de datos para realizar operaciones.
     :type session: sqlmodel.Session
-    :param email_or_nickname: El email o nickname del usuario que intenta autenticarse.
-    :type email_or_nickname: str
+    :param email_or_username: El email o username del usuario que intenta autenticarse.
+    :type email_or_username: str
     :param password: La contraseña en texto plano proporcionada por el usuario.
     :type password: str
     :return: El objeto :class:`app.models.user_model.User` si la autenticación es exitosa,
              de lo contrario ``None``.
     :rtype: Optional[app.models.user_model.User]
     """
-    user = await crud_user.get_user_by_email(session, email_or_nickname)
+    user = await crud_user.get_user_by_email(session, email_or_username)
     
     if not user:
-        user = await crud_user.get_user_by_nickname(session, email_or_nickname)
+        user = await crud_user.get_user_by_username(session, email_or_username)
     
     if not user:
         return None 

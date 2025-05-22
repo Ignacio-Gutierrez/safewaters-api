@@ -18,18 +18,18 @@ async def get_user_by_email(session: Session, email: str) -> Optional[User]:
     user = session.exec(statement).first()
     return user
 
-async def get_user_by_nickname(session: Session, nickname: str) -> Optional[User]:
+async def get_user_by_username(session: Session, username: str) -> Optional[User]:
     """
-    Obtiene un usuario por su nickname.
+    Obtiene un usuario por su username.
 
     :param session: La sesión de base de datos.
     :type session: sqlmodel.Session
-    :param nickname: El nickname del usuario a buscar.
-    :type nickname: str
+    :param username: El username del usuario a buscar.
+    :type username: str
     :return: El objeto User si se encuentra, de lo contrario None.
     :rtype: Optional[app.models.user_model.User]
     """
-    statement = select(User).where(User.nickname == nickname)
+    statement = select(User).where(User.username == username)
     user = session.exec(statement).first()
     return user
 
