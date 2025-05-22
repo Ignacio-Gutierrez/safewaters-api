@@ -27,7 +27,7 @@ router = APIRouter()
 Router de FastAPI para los endpoints de autenticación y gestión de usuarios.
 """
 
-@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED, tags=["Autenticación y Usuarios"])
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register_new_user(
     *,
     session: Session = Depends(get_session),
@@ -77,7 +77,7 @@ async def register_new_user(
     return created_user
 
 
-@router.post("/login", response_model=Token, tags=["Autenticación y Usuarios"])
+@router.post("/login", response_model=Token)
 async def login_for_access_token(
     session: Session = Depends(get_session), 
     form_data: OAuth2PasswordRequestForm = Depends()
