@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 class UserBase(SQLModel):
     email: EmailStr = Field(max_length=100, unique=True, index=True, nullable=False)
-    nickname: str = Field(max_length=50, unique=True, index=True, nullable=False)
+    username: str = Field(max_length=50, unique=True, index=True, nullable=False)
 
 
 class User(UserBase, table=True):
@@ -33,7 +33,7 @@ class UserCreate(UserBase):
         """
         json_schema_extra = {
             "example": {
-                "nickname": "testuser",
+                "username": "testuser",
                 "email": "user@example.com",
                 "password": "aStrongPassword123!",
             }
