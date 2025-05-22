@@ -129,3 +129,64 @@ def delete_blocking_rule(
         session.commit()
         return db_blocking_rule
     return None
+
+
+def get_blocking_rules_by_managed_profile(
+    session: Session, 
+    managed_profile_id: int, 
+    skip: int = 0, 
+    limit: int = 100
+) -> List[BlockingRule]:
+    """
+    Obtiene todas las reglas de bloqueo para un perfil gestionado específico, con paginación.
+    Las reglas se devuelven ordenadas por ID (implícitamente por orden de creación).
+
+    :param session: La sesión de base de datos.
+    :type session: sqlmodel.Session
+    :param managed_profile_id: El ID del perfil gestionado.
+    :type managed_profile_id: int
+    :param skip: Número de registros a saltar (para paginación).
+    :type skip: int
+    :param limit: Número máximo de registros a devolver (para paginación).
+    :type limit: int
+    :return: Una lista de reglas de bloqueo para el perfil especificado.
+             La lista puede estar vacía si no hay reglas o si los parámetros de paginación
+             exceden el número de registros.
+    :rtype: List[app.models.blocking_rule_model.BlockingRule]
+    """
+    statement = (
+        select(BlockingRule)
+        .where(BlockingRule.managed_profile_id == managed_profile_id)
+        .offset(skip)
+        .limit(limit)
+        .order_by(BlockingRule.id)
+    )
+    results = session.exec(statement)
+    blocking_rules = results.all()
+    return list(blocking_rules)
+
+
+async def get_active_blocking_rules_for_profile(
+    session: Session, 
+    managed_profile_id: int
+) -> List[BlockingRule]:
+    """
+    Obtiene todas las reglas de bloqueo ACTIVAS para un perfil gestionado específico.
+
+    :param session: La sesión de base de datos.
+    :type session: sqlmodel.Session
+    :param managed_profile_id: El ID del perfil gestionado.
+    :type managed_profile_id: int
+    :return: Una lista de reglas de bloqueo activas para el perfil especificado.
+             La lista puede estar vacía si no hay reglas activas.
+    :rtype: List[app.models.blocking_rule_model.BlockingRule]
+    """
+    statement = (
+        select(BlockingRule)
+        .where(BlockingRule.managed_profile_id == managed_profile_id)
+        .where(BlockingRule.is_active == True)
+        .order_by(BlockingRule.id)
+    )
+    results = session.exec(statement)
+    blocking_rules = results.all()
+    return list(blocking_rules)
