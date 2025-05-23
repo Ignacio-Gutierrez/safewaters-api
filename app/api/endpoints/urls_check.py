@@ -35,7 +35,7 @@ async def check(
     Finalmente, registra la navegación.
 
     :param request: Objeto de solicitud que contiene la URL a verificar.
-                    Puede incluir `extension_instance_id` y `page_title`.
+                    Puede incluir `extension_instance_id`.
     :type request: app.schemas.urls_check.URLRequest
     :param session: Sesión de base de datos inyectada.
     :type session: sqlmodel.Session
@@ -54,61 +54,68 @@ async def check(
         
         if managed_profile and managed_profile.id is not None:
             profile_id_for_nav_history = managed_profile.id
-            block_check_result = await blocking_rule_service.create_blocking_rule_for_profile_service(
+            block_check_result = await blocking_rule_service.check_blocking_rules(
                 session=session,
                 profile_id=managed_profile.id,
                 url=str(request.url)
             )
             if block_check_result["is_blocked"]:
+                # CASO 1: URL BLOQUEADA POR REGLA DE USUARIO
                 url_domain = get_domain_from_url(str(request.url)) or "N/A"
-                response_data = URLResponse(
+                response_data_blocked_by_user = URLResponse(
                     domain=url_domain,
-                    malicious=False,
+                    malicious=False, # No es maliciosa por análisis externo, sino bloqueada por usuario
                     info=block_check_result["reason"] or "Bloqueado por regla de usuario.",
                     source="User Defined Rule",
                     is_blocked_by_user_rule=True,
                     blocking_rule_details=block_check_result["reason"]
                 )
 
-            try:
-                await navigation_history_service.record_navigation_visit(
-                    session=session,
-                    profile_id=profile_id_for_nav_history,
-                    url=str(request.url),
-                    is_malicious=response_data.malicious,
-                    is_blocked_by_user=response_data.is_blocked_by_user_rule
-                )
-            except Exception as e:
-                pass
+                try:
+                    # Registrar intento de navegación
+                    await navigation_history_service.record_navigation_visit(
+                        session=session,
+                        profile_id=profile_id_for_nav_history,
+                        url=str(request.url)
+                        # Los campos is_malicious e is_blocked_by_user se eliminan 
+                        # según el error del log anterior.
+                    )
+                except Exception as e:
+                    print(f"Error al registrar navegación para URL bloqueada por usuario: {e}")
+                    # Considerar logging en producción
+                    pass 
 
-            return response_data
+                return response_data_blocked_by_user # Retornar aquí y no continuar
         
-
-    # 2. Si no está bloqueado por el usuario (o no hay perfil), proceder con el análisis de seguridad externo
+    # CASO 2: URL NO BLOQUEADA POR REGLA DE USUARIO (o no hay perfil/reglas aplicables)
+    # Proceder con el análisis de seguridad externo
     analysis_result_dict = await service_check_url(str(request.url))
     
+    # Construir la respuesta final basada en el análisis externo
+    # El response_model URLResponse sí espera is_blocked_by_user_rule y blocking_rule_details
+    # por lo que los mantenemos aquí, reflejando el estado actual.
     final_response = URLResponse(
         domain=analysis_result_dict["domain"],
         malicious=analysis_result_dict["malicious"],
         info=analysis_result_dict["info"],
         source=analysis_result_dict["source"],
-        is_blocked_by_user_rule=False,
+        is_blocked_by_user_rule=False, # En este camino, no fue bloqueada por regla de usuario
         blocking_rule_details=None
     )
 
-    # 3. Registrar la visita en el historial de navegación (si hay perfil)
+    # Registrar la visita en el historial de navegación (si se identificó un perfil)
     if profile_id_for_nav_history:
         try:
             await navigation_history_service.record_navigation_visit(
                 session=session,
                 profile_id=profile_id_for_nav_history,
-                url=str(request.url),
-                page_title=request.page_title,
-                is_malicious=final_response.malicious,
-                is_blocked_by_user=final_response.is_blocked_by_user_rule
+                url=str(request.url)
+                # Los campos is_malicious e is_blocked_by_user se eliminan
+                # según el error del log anterior.
             )
         except Exception as e:
-
+            print(f"Error al registrar navegación para URL analizada externamente: {e}")
+            # Considerar logging en producción
             pass 
             
     return final_response

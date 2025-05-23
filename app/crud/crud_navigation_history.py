@@ -26,7 +26,7 @@ async def create_navigation_history_entry(
         history_entry,
         update={
             "managed_profile_id": profile_id,
-            "fecha_visita": datetime.utcnow()
+            "visited_date": datetime.utcnow()
         }
     )
     session.add(db_history)
@@ -61,7 +61,7 @@ async def get_navigation_history_for_profile(
     statement = (
         select(NavigationHistory)
         .where(NavigationHistory.managed_profile_id == profile_id)
-        .order_by(NavigationHistory.fecha_visita.desc())
+        .order_by(NavigationHistory.visited_date.desc())
         .offset(skip)
         .limit(limit)
     )
