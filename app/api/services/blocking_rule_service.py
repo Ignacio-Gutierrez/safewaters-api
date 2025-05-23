@@ -269,7 +269,7 @@ async def check_blocking_rules(
     :rtype: Dict[str, Any]
     """
     active_rules = await crud_blocking_rule.get_active_blocking_rules_for_profile(
-        session=session, profile_id=profile_id
+        session=session, managed_profile_id=profile_id
     )
 
     if not active_rules:

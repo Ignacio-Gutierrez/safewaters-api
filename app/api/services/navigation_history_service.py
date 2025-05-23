@@ -18,7 +18,6 @@ async def record_navigation_visit(
     session: Session,
     profile_id: int,
     url: str,
-    page_title: Optional[str] = None,
 ) -> NavigationHistory:
     """
     Registra una visita de navegación para un perfil.
@@ -32,14 +31,11 @@ async def record_navigation_visit(
     :type profile_id: int
     :param url: La URL visitada.
     :type url: str
-    :param page_title: El título de la página visitada (opcional).
-    :type page_title: Optional[str]
     :return: El objeto de historial de navegación creado.
     :rtype: app.models.navigation_history_model.NavigationHistory
     """
     history_create = NavigationHistoryCreate(
         visited_url=url,
-        page_title=page_title
     )
     
     return await crud_nav_history.create_navigation_history_entry(

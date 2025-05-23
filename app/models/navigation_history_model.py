@@ -18,7 +18,7 @@ class NavigationHistory(NavigationHistoryBase, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     managed_profile_id: int = Field(foreign_key="managed_profiles.id", nullable=False, index=True)
-    fecha_visita: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    visited_date: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     
     blocking_rule_id: Optional[int] = Field(default=None, foreign_key="blocking_rules.id", nullable=True)
     
@@ -33,7 +33,7 @@ class NavigationHistoryCreate(NavigationHistoryBase):
 class NavigationHistoryRead(NavigationHistoryBase):
     id: int
     managed_profile_id: int
-    fecha_visita: datetime
+    visited_date: datetime
     blocking_rule_id: Optional[int] = None
 
 
