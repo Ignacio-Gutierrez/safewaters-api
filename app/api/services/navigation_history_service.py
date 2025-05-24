@@ -13,6 +13,7 @@ from app.crud import crud_navigation_history as crud_nav_history
 from app.crud import crud_managed_profile
 from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate, NavigationHistoryRead
 from app.models.user_model import User
+from app.models.pagination_model import PaginatedResponse 
 
 async def record_navigation_visit(
     session: Session,
@@ -48,11 +49,11 @@ async def get_profile_navigation_history(
     session: Session,
     profile_id: int,
     current_user: User,
-    skip: int = 0,
-    limit: int = 100
-) -> List[NavigationHistoryRead]:
+    page: int,
+    page_size: int
+) -> PaginatedResponse[NavigationHistoryRead]:
     """
-    Obtiene el historial de navegación para un perfil específico.
+    Obtiene el historial de navegación paginado para un perfil específico.
 
     Verifica que el `current_user` sea el propietario del perfil antes de
     devolver el historial.
@@ -63,14 +64,14 @@ async def get_profile_navigation_history(
     :type profile_id: int
     :param current_user: El usuario autenticado que realiza la solicitud.
     :type current_user: app.models.user_model.User
-    :param skip: Número de registros a omitir (para paginación).
-    :type skip: int
-    :param limit: Número máximo de registros a devolver (para paginación).
-    :type limit: int
-    :return: Una lista de entradas del historial de navegación.
-    :rtype: List[app.models.navigation_history_model.NavigationHistoryRead]
-    :raises HTTPException: Si el perfil no se encuentra (404) o si el usuario
-                           no está autorizado para acceder al historial (403).
+    :param page: Número de página a recuperar.
+    :type page: int
+    :param page_size: Número de elementos por página.
+    :type page_size: int
+    :return: Un objeto PaginatedResponse con el historial de navegación.
+    :rtype: app.models.pagination_model.PaginatedResponse[app.models.navigation_history_model.NavigationHistoryRead]
+    :raises HTTPException: Si el perfil no se encuentra (404), si el usuario
+                           no está autorizado (403), o si la página solicitada está fuera de rango (404).
     """
     profile = crud_managed_profile.get_managed_profile_by_id(session=session, profile_id=profile_id)
     if not profile:
@@ -79,7 +80,45 @@ async def get_profile_navigation_history(
     if profile.manager_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado para acceder a este historial")
 
-    history_db = await crud_nav_history.get_navigation_history_for_profile(
+    skip = (page - 1) * page_size
+    limit = page_size
+
+    history_db_items = await crud_nav_history.get_navigation_history_for_profile(
         session=session, profile_id=profile_id, skip=skip, limit=limit
     )
-    return [NavigationHistoryRead.model_validate(entry) for entry in history_db]
+    
+    total_items = await crud_nav_history.count_navigation_history_for_profile(
+        session=session, profile_id=profile_id
+    )
+
+    total_pages = 0
+    if page_size > 0:
+        total_pages = (total_items + page_size - 1) // page_size
+    elif total_items > 0 :
+        total_pages = 1 
+    
+    if total_items == 0:
+        total_pages = 0
+    elif total_pages == 0 and total_items > 0:
+        total_pages = 1
+
+
+    if total_items == 0 and page != 1:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Página {page} no encontrada. No hay historial de navegación."
+        )
+    
+    if total_items > 0 and page > total_pages:
+         raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Página {page} no encontrada. Hay {total_pages} páginas en total."
+        )
+
+    return PaginatedResponse[NavigationHistoryRead](
+        total_items=total_items,
+        total_pages=total_pages if total_items > 0 else 0,
+        current_page=page,
+        page_size=page_size,
+        items=[NavigationHistoryRead.model_validate(entry) for entry in history_db_items]
+    )

@@ -13,6 +13,7 @@ from app.api.services import navigation_history_service as nav_history_service
 from app.models.navigation_history_model import NavigationHistoryRead
 from app.models.user_model import User
 from app.core.security import get_current_user
+from app.models.pagination_model import PaginatedResponse
 
 router = APIRouter()
 """
@@ -21,45 +22,44 @@ Instancia de :class:`fastapi.APIRouter` para registrar las rutas relacionadas co
 
 @router.get(
     "/{profile_id}/history",
-    response_model=List[NavigationHistoryRead],
+    response_model=PaginatedResponse[NavigationHistoryRead],
     tags=["Historial de Navegación"],
     summary="Obtener historial de navegación para un perfil gestionado"
 )
 async def read_navigation_history_for_profile(
     profile_id: int,
-    skip: int = Query(0, ge=0, description="Número de registros a saltar para paginación."),
-    limit: int = Query(100, ge=1, le=200, description="Número máximo de registros a devolver por página."),
+    page: int = Query(1, ge=1, description="Número de página a recuperar, comenzando desde 1."),
+    page_size: int = Query(10, ge=1, le=100, description="Número de elementos por página."),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user)
-) -> List[NavigationHistoryRead]:
+) -> PaginatedResponse[NavigationHistoryRead]:
     """
-    Obtiene el historial de navegación para un perfil gestionado específico.
+    Obtiene el historial de navegación paginado para un perfil gestionado específico.
 
     El usuario autenticado debe ser el propietario del perfil para poder acceder
-    a esta información. La paginación se controla con los parámetros `skip` y `limit`.
+    a esta información. La paginación se controla con los parámetros `page` y `page_size`.
 
     :param profile_id: El ID del perfil gestionado cuyo historial se desea obtener.
     :type profile_id: int
-    :param skip: Número de registros a omitir (para paginación).
-    :type skip: int
-    :param limit: Número máximo de registros a devolver (para paginación).
-    :type limit: int
+    :param page: Número de página a recuperar.
+    :type page: int
+    :param page_size: Número de elementos por página.
+    :type page_size: int
     :param session: Sesión de base de datos inyectada.
     :type session: sqlmodel.Session
     :param current_user: El usuario autenticado que realiza la solicitud.
-                         Se utiliza para verificar la propiedad del perfil.
     :type current_user: app.models.user_model.User
-    :return: Una lista de entradas del historial de navegación para el perfil especificado.
-    :rtype: List[app.models.navigation_history_model.NavigationHistoryRead]
-    :raises HTTPException: Si el perfil no se encuentra (404) o si el usuario
-                           no está autorizado para acceder al historial (403),
-                           estas excepciones son propagadas desde el servicio.
+    :return: Un objeto PaginatedResponse con los datos de paginación y la lista de entradas del historial.
+    :rtype: app.models.pagination_model.PaginatedResponse[app.models.navigation_history_model.NavigationHistoryRead]
+    :raises HTTPException: Si el perfil no se encuentra (404), si el usuario
+                           no está autorizado (403), o si la página solicitada está fuera de rango (404).
+                           Estas excepciones son propagadas desde el servicio.
     """
-    history = await nav_history_service.get_profile_navigation_history(
+    paginated_history = await nav_history_service.get_profile_navigation_history(
         session=session,
         profile_id=profile_id,
         current_user=current_user,
-        skip=skip,
-        limit=limit
+        page=page,
+        page_size=page_size
     )
-    return history
+    return paginated_history

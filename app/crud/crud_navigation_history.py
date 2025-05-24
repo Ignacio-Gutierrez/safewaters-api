@@ -1,5 +1,5 @@
 from typing import List, Optional
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 from datetime import datetime
 
 from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate
@@ -69,20 +69,25 @@ async def get_navigation_history_for_profile(
     history_entries = results.all()
     return list(history_entries)
 
-async def get_navigation_history_entry_by_id(
+async def count_navigation_history_for_profile(
     session: Session,
-    history_id: int
-) -> Optional[NavigationHistory]:
+    profile_id: int
+) -> int:
     """
-    Obtiene una entrada específica del historial de navegación por su ID.
+    Cuenta el número total de entradas de historial de navegación para un perfil gestionado.
 
     :param session: La sesión de base de datos.
     :type session: sqlmodel.Session
-    :param history_id: El ID de la entrada del historial a recuperar.
-    :type history_id: int
-    :return: La entrada del historial si se encuentra, de lo contrario None.
-    :rtype: Optional[app.models.navigation_history_model.NavigationHistory]
+    :param profile_id: El ID del perfil gestionado.
+    :type profile_id: int
+    :return: El número total de entradas de historial.
+    :rtype: int
     """
-    statement = select(NavigationHistory).where(NavigationHistory.id == history_id)
-    result = session.exec(statement)
-    return result.first()
+    statement = (
+        select(func.count())
+        .select_from(NavigationHistory)
+        .where(NavigationHistory.managed_profile_id == profile_id)
+    )
+    count_value = session.scalar(statement)
+    
+    return count_value if count_value is not None else 0
