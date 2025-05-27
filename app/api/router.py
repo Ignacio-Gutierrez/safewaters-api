@@ -39,7 +39,7 @@ al :data:`api_router` bajo el prefijo ``/auth``. Estas rutas manejan
 la autenticación de usuarios, el registro y la gestión de tokens.
 """
 
-api_router.include_router(managed_profile_router, prefix="/managed_profiles", tags=["Perfiles Gestionados"])
+api_router.include_router(managed_profile_router, prefix="/managed_profiles")
 """
 Inclusión del router para la gestión de perfiles gestionados.
 
