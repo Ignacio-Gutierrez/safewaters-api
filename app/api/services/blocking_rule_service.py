@@ -71,8 +71,6 @@ def get_blocking_rules_for_profile_service(
     session: Session,
     managed_profile_id: int,
     current_user: User,
-    skip: int = 0,
-    limit: int = 100,
 ) -> List[BlockingRuleRead]:
     """
     Obtiene todas las reglas de bloqueo para un perfil gestionado específico.
@@ -85,11 +83,7 @@ def get_blocking_rules_for_profile_service(
     :type managed_profile_id: int
     :param current_user: El usuario autenticado que realiza la solicitud.
     :type current_user: app.models.user_model.User
-    :param skip: Número de registros a omitir (para paginación).
-    :type skip: int
-    :param limit: Número máximo de registros a devolver (para paginación).
-    :type limit: int
-    :return: Una lista de reglas de bloqueo.
+    :return: Una lista de todas las reglas de bloqueo.
     :rtype: List[app.models.blocking_rule_model.BlockingRuleRead]
     :raises HTTPException: Si el perfil gestionado no se encuentra (404) o si el usuario
                            no está autorizado para acceder al perfil (403).
@@ -108,7 +102,7 @@ def get_blocking_rules_for_profile_service(
         )
 
     rules_db = crud_blocking_rule.get_blocking_rules_by_managed_profile(
-        session=session, managed_profile_id=managed_profile_id, skip=skip, limit=limit
+        session=session, managed_profile_id=managed_profile_id
     )
     return [BlockingRuleRead.model_validate(rule) for rule in rules_db]
 

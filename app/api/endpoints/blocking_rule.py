@@ -70,8 +70,6 @@ def create_blocking_rule_for_managed_profile(
 )
 def read_blocking_rules_for_managed_profile(
     managed_profile_id: int,
-    skip: int = Query(0, ge=0, description="Número de registros a saltar para paginación."),
-    limit: int = Query(100, ge=1, le=200, description="Número máximo de registros a devolver por página."),
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
 ) -> List[BlockingRuleRead]:
@@ -79,19 +77,14 @@ def read_blocking_rules_for_managed_profile(
     Obtiene todas las reglas de bloqueo para un perfil gestionado específico.
 
     El usuario autenticado debe ser el propietario del perfil.
-    La paginación se controla con los parámetros `skip` y `limit`.
 
     :param managed_profile_id: El ID del perfil gestionado.
     :type managed_profile_id: int
-    :param skip: Número de registros a omitir (para paginación).
-    :type skip: int
-    :param limit: Número máximo de registros a devolver (para paginación).
-    :type limit: int
     :param session: Sesión de base de datos inyectada.
     :type session: sqlmodel.Session
     :param current_user: El usuario autenticado que realiza la solicitud.
     :type current_user: app.models.user_model.User
-    :return: Una lista de reglas de bloqueo para el perfil especificado.
+    :return: Una lista de todas las reglas de bloqueo para el perfil especificado.
     :rtype: List[app.models.blocking_rule_model.BlockingRuleRead]
     :raises HTTPException: Propagada desde el servicio si el perfil no se encuentra (404)
                            o el usuario no está autorizado (403).
@@ -100,8 +93,6 @@ def read_blocking_rules_for_managed_profile(
         session=session,
         managed_profile_id=managed_profile_id,
         current_user=current_user,
-        skip=skip,
-        limit=limit,
     )
 
 @router.get(
