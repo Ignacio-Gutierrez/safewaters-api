@@ -92,12 +92,11 @@ def update_blocking_rule(
     :return: El objeto BlockingRule actualizado.
     :rtype: app.models.blocking_rule_model.BlockingRule
     """
-    blocking_rule_data = blocking_rule_in.model_dump(exclude_unset=True)
-    for key, value in blocking_rule_data.items():
-        setattr(db_blocking_rule, key, value)
-    session.add(db_blocking_rule)
-    session.commit()
-    session.refresh(db_blocking_rule)
+    if blocking_rule_in.is_active is not None:
+        db_blocking_rule.is_active = blocking_rule_in.is_active
+        session.add(db_blocking_rule)
+        session.commit()
+        session.refresh(db_blocking_rule)
     return db_blocking_rule
 
 
