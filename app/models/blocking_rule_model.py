@@ -40,7 +40,4 @@ class BlockingRuleRead(BlockingRuleBase):
 
 
 class BlockingRuleUpdate(SQLModel):
-    rule_type: Optional[str] = Field(default=None, max_length=50)
-    rule_value: Optional[str] = Field(default=None, max_length=255)
-    description: Optional[str] = Field(default=None, max_length=255)
     is_active: Optional[bool] = Field(default=None)
