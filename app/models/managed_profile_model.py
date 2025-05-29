@@ -27,8 +27,8 @@ class ManagedProfile(ManagedProfileBase, table=True):
 
     manager_user: Optional["User"] = Relationship(back_populates="managed_profiles")
     
-    blocking_rules: List["BlockingRule"] = Relationship(back_populates="managed_profile", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    navigation_history: List["NavigationHistory"] = Relationship(back_populates="managed_profile", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    blocking_rules: List["BlockingRule"] = Relationship(back_populates="managed_profile")
+    navigation_history: List["NavigationHistory"] = Relationship(back_populates="managed_profile")
 
 
 class ManagedProfileCreate(ManagedProfileBase):

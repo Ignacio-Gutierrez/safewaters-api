@@ -4,13 +4,15 @@ from fastapi import HTTPException, status
 import secrets 
 from datetime import datetime
 
+from app.crud import crud_managed_profile, crud_blocking_rule
+from app.crud import crud_navigation_history as crud_nav_history
 from app.models.managed_profile_model import (
     ManagedProfile,
     ManagedProfileCreate,
     ManagedProfileUpdate,
     LinkExtensionRequest
 )
-from app.crud import crud_managed_profile
+from app.models.user_model import User
 
 from app.config import settings
 
@@ -158,6 +160,8 @@ async def delete_managed_profile(
     Elimina un perfil gestionado existente.
 
     Solo el manager propietario del perfil puede eliminarlo.
+    No se permite la eliminación si el perfil tiene historial de navegación
+    o reglas de bloqueo asociadas.
 
     :param session: La sesión de base de datos.
     :type session: Session
@@ -167,12 +171,32 @@ async def delete_managed_profile(
     :type manager_user_id: int
     :return: El perfil gestionado que fue eliminado, o None si no se encontró o no pertenecía al manager.
     :rtype: Optional[ManagedProfile]
+    :raises HTTPException: Si el perfil tiene historial o reglas asociadas (HTTP 409),
+                           o si el perfil no se encuentra o no pertenece al manager.
     """
     profile_to_delete = await get_managed_profile_by_id_and_manager(
         session=session, profile_id=profile_id, manager_user_id=manager_user_id
     )
     if not profile_to_delete:
         return None
+
+    history_count = await crud_nav_history.count_navigation_history_for_profile(
+        session=session, profile_id=profile_id
+    )
+    if history_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El perfil no se puede eliminar porque tiene historial de navegación asociado."
+        )
+
+    rules_count = await crud_blocking_rule.count_blocking_rules_for_profile(
+        session=session, profile_id=profile_id
+    )
+    if rules_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El perfil no se puede eliminar porque tiene reglas de bloqueo asociadas."
+        )
 
     return crud_managed_profile.delete_managed_profile_db(session=session, profile_id=profile_id)
 

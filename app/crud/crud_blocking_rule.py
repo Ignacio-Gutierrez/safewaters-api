@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func  # Asegúrate de que func está importado
 
 from app.models.blocking_rule_model import BlockingRule, BlockingRuleCreate, BlockingRuleUpdate
 
@@ -121,6 +121,29 @@ def delete_blocking_rule(
         return db_blocking_rule
     return None
 
+
+async def count_blocking_rules_for_profile(
+    session: Session,
+    profile_id: int
+) -> int:
+    """
+    Cuenta el número total de reglas de bloqueo para un perfil gestionado.
+
+    :param session: La sesión de base de datos.
+    :type session: sqlmodel.Session
+    :param profile_id: El ID del perfil gestionado.
+    :type profile_id: int
+    :return: El número total de reglas de bloqueo.
+    :rtype: int
+    """
+    statement = (
+        select(func.count())
+        .select_from(BlockingRule)
+        .where(BlockingRule.managed_profile_id == profile_id)
+    )
+    count_value = session.scalar(statement)
+    
+    return count_value if count_value is not None else 0
 
 async def get_active_blocking_rules_for_profile(
     session: Session, 
