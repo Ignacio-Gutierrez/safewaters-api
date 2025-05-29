@@ -90,19 +90,30 @@ async def read_managed_profiles_for_current_user(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Obtiene todos los perfiles gestionados por el usuario manager autenticado.
+    Obtiene todos los perfiles gestionados por el usuario manager autenticado,
+    incluyendo el conteo de reglas de bloqueo para cada perfil.
 
     :param session: Sesión de base de datos.
     :type session: Session
     :param current_user: Usuario manager autenticado.
     :type current_user: User
-    :return: Lista de perfiles gestionados por el usuario.
+    :return: Lista de perfiles gestionados por el usuario con conteo de reglas.
     :rtype: List[ManagedProfileRead]
     """
-    profiles = await managed_profile_service.get_managed_profiles_by_manager(
+    profiles_db = await managed_profile_service.get_managed_profiles_by_manager(
         session=session, manager_user_id=current_user.id
     )
-    return profiles
+    
+    response_profiles = []
+    for profile_db in profiles_db:
+        rules_count = len(profile_db.blocking_rules) 
+        
+        profile_read_data = profile_db.model_dump()
+        profile_read_data['blocking_rules_count'] = rules_count
+        
+        response_profiles.append(ManagedProfileRead.model_validate(profile_read_data))
+        
+    return response_profiles
 
 @router.get("/{profile_id}", response_model=ManagedProfileRead, tags=["Perfiles Gestionados"])
 async def read_managed_profile_by_id(
