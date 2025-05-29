@@ -1,4 +1,5 @@
 from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload # Asegúrate de importar selectinload
 from typing import List, Optional
 
 from app.models.managed_profile_model import ManagedProfile, ManagedProfileUpdate
@@ -36,6 +37,7 @@ def get_managed_profile_by_id(session: Session, profile_id: int) -> Optional[Man
 def get_managed_profiles_by_manager_id(session: Session, manager_id: int) -> List[ManagedProfile]:
     """
     Obtiene todos los perfiles gestionados asociados a un ID de manager.
+    Carga ansiosamente las reglas de bloqueo para evitar N+1 consultas.
 
     :param session: La sesión de base de datos.
     :type session: sqlmodel.Session
@@ -44,9 +46,13 @@ def get_managed_profiles_by_manager_id(session: Session, manager_id: int) -> Lis
     :return: Una lista de objetos ManagedProfile.
     :rtype: List[app.models.managed_profile_model.ManagedProfile]
     """
-    statement = select(ManagedProfile).where(ManagedProfile.manager_user_id == manager_id)
+    statement = (
+        select(ManagedProfile)
+        .where(ManagedProfile.manager_user_id == manager_id)
+        .options(selectinload(ManagedProfile.blocking_rules))
+    )
     profiles = session.exec(statement).all()
-    return profiles
+    return list(profiles)
 
 def get_managed_profile_by_name_and_manager_id(
     session: Session, profile_name: str, manager_id: int

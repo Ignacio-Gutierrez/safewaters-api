@@ -41,6 +41,7 @@ class ManagedProfileRead(ManagedProfileBase):
     created_at: datetime
     link_code: Optional[str] = None
     extension_instance_id: Optional[str] = None
+    blocking_rules_count: int
 
 
 class ManagedProfileReadWithDetails(ManagedProfileRead):
