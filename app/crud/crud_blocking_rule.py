@@ -1,7 +1,6 @@
 from typing import List, Optional
 
-from sqlmodel import Session, select, func  # Asegúrate de que func está importado
-
+from sqlmodel import Session, select, func
 from app.models.blocking_rule_model import BlockingRule, BlockingRuleCreate, BlockingRuleUpdate
 
 
