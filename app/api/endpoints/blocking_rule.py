@@ -171,7 +171,7 @@ def update_blocking_rule(
     tags=["Reglas de Bloqueo"],
     summary="Eliminar una regla de bloqueo"
 )
-def delete_blocking_rule(
+async def delete_blocking_rule(
     blocking_rule_id: int,
     session: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -180,7 +180,8 @@ def delete_blocking_rule(
     Elimina una regla de bloqueo.
 
     El usuario autenticado debe ser el propietario del perfil gestionado
-    asociado a esta regla.
+    asociado a esta regla. No se permite la eliminación si la regla
+    está asociada a entradas del historial de navegación.
 
     :param blocking_rule_id: El ID de la regla de bloqueo a eliminar.
     :type blocking_rule_id: int
@@ -190,9 +191,9 @@ def delete_blocking_rule(
     :type current_user: app.models.user_model.User
     :return: La regla de bloqueo eliminada.
     :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Propagada desde el servicio si la regla no se encuentra (404)
-                           o el usuario no está autorizado (403).
+    :raises HTTPException: Propagada desde el servicio si la regla no se encuentra (404),
+                           el usuario no está autorizado (403), o la regla está en uso (409).
     """
-    return blocking_rule_service.delete_blocking_rule_service(
+    return await blocking_rule_service.delete_blocking_rule_service(
         session=session, blocking_rule_id=blocking_rule_id, current_user=current_user
     )

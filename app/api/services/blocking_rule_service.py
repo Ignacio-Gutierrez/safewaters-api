@@ -5,12 +5,12 @@ Este módulo proporciona funciones para crear, leer, actualizar y eliminar
 reglas de bloqueo, asegurando las comprobaciones de autorización necesarias
 basadas en la propiedad del perfil gestionado.
 """
-from typing import Dict, Any,  List
-from sqlmodel import Session
+from typing import Dict, Any, List
 from fastapi import HTTPException, status
+from sqlmodel import Session
 
-from app.crud import crud_blocking_rule
-from app.crud import crud_managed_profile
+from app.crud import crud_blocking_rule, crud_managed_profile
+from app.crud import crud_navigation_history
 from app.models.blocking_rule_model import (
     BlockingRuleCreate,
     BlockingRuleRead,
@@ -53,7 +53,7 @@ def create_blocking_rule_for_profile_service(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Perfil gestionado no encontrado"
         )
-    if managed_profile.manager_user_id != current_user.id: # Asumiendo que el campo es manager_user_id
+    if managed_profile.manager_user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No autorizado para añadir reglas a este perfil gestionado",
@@ -196,14 +196,15 @@ def update_blocking_rule_service(
     return BlockingRuleRead.model_validate(updated_rule)
 
 
-def delete_blocking_rule_service(
+async def delete_blocking_rule_service(
     session: Session, blocking_rule_id: int, current_user: User
 ) -> BlockingRuleRead:
     """
     Elimina una regla de bloqueo.
 
     Verifica que el `current_user` sea el propietario del perfil gestionado
-    asociado a la regla.
+    asociado a la regla. Impide la eliminación si la regla está asociada
+    a entradas del historial de navegación.
 
     :param session: La sesión de base de datos.
     :type session: sqlmodel.Session
@@ -233,9 +234,19 @@ def delete_blocking_rule_service(
             detail="No autorizado para eliminar esta regla de bloqueo",
         )
 
+    history_count = await crud_navigation_history.count_navigation_history_by_blocking_rule_id(
+        session=session, blocking_rule_id=blocking_rule_id
+    )
+    if history_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La regla de bloqueo no se puede eliminar porque está asociada a entradas del historial de navegación."
+        )
+
     deleted_rule = crud_blocking_rule.delete_blocking_rule(
         session=session, blocking_rule_id=blocking_rule_id
     )
+    
     if not deleted_rule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Regla de bloqueo no encontrada para eliminar"

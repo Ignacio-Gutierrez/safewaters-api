@@ -4,7 +4,7 @@ from fastapi import HTTPException, status
 import secrets 
 from datetime import datetime
 
-from app.crud import crud_managed_profile, crud_blocking_rule
+from app.crud import crud_managed_profile, crud_user, crud_blocking_rule
 from app.crud import crud_navigation_history as crud_nav_history
 from app.models.managed_profile_model import (
     ManagedProfile,

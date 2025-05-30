@@ -34,6 +34,51 @@ async def create_navigation_history_entry(
     session.refresh(db_history)
     return db_history
 
+async def count_navigation_history_for_profile(
+    session: Session,
+    profile_id: int
+) -> int:
+    """
+    Cuenta el número total de entradas de historial de navegación para un perfil gestionado.
+
+    :param session: La sesión de base de datos.
+    :type session: sqlmodel.Session
+    :param profile_id: El ID del perfil gestionado.
+    :type profile_id: int
+    :return: El número total de entradas de historial.
+    :rtype: int
+    """
+    statement = (
+        select(func.count())
+        .select_from(NavigationHistory)
+        .where(NavigationHistory.managed_profile_id == profile_id)
+    )
+    count_value = session.scalar(statement)
+    
+    return count_value if count_value is not None else 0
+
+async def count_navigation_history_by_blocking_rule_id(
+    session: Session,
+    blocking_rule_id: int
+) -> int:
+    """
+    Cuenta el número de entradas de historial de navegación asociadas a un ID de regla de bloqueo.
+
+    :param session: La sesión de base de datos.
+    :type session: sqlmodel.Session
+    :param blocking_rule_id: El ID de la regla de bloqueo.
+    :type blocking_rule_id: int
+    :return: El número de entradas de historial asociadas.
+    :rtype: int
+    """
+    statement = (
+        select(func.count())
+        .select_from(NavigationHistory)
+        .where(NavigationHistory.blocking_rule_id == blocking_rule_id)
+    )
+    count_value = session.scalar(statement)
+    return count_value if count_value is not None else 0
+
 async def get_navigation_history_for_profile(
     session: Session,
     profile_id: int,
@@ -68,26 +113,3 @@ async def get_navigation_history_for_profile(
     results = session.exec(statement)
     history_entries = results.all()
     return list(history_entries)
-
-async def count_navigation_history_for_profile(
-    session: Session,
-    profile_id: int
-) -> int:
-    """
-    Cuenta el número total de entradas de historial de navegación para un perfil gestionado.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param profile_id: El ID del perfil gestionado.
-    :type profile_id: int
-    :return: El número total de entradas de historial.
-    :rtype: int
-    """
-    statement = (
-        select(func.count())
-        .select_from(NavigationHistory)
-        .where(NavigationHistory.managed_profile_id == profile_id)
-    )
-    count_value = session.scalar(statement)
-    
-    return count_value if count_value is not None else 0
