@@ -1,10 +1,9 @@
+import re
+import uuid
 from typing import Optional, List, TYPE_CHECKING
 from beanie import Document, Indexed, Link
 from pydantic import BaseModel, Field
 from datetime import datetime
-import uuid
-import secrets
-import re
 
 # Importación directa en lugar de TYPE_CHECKING
 from app.models.user_model import User
@@ -35,8 +34,8 @@ class ManagedProfile(Document):
     def generate_token(username: str, profile_name: str) -> str:
         """Genera un token único para el perfil."""
         slugified_name = ManagedProfile.slugify(profile_name)
-        random_suffix = secrets.token_urlsafe(6)[:6]
-        return f"{username}_{slugified_name}_{random_suffix}"
+        unique_id = str(uuid.uuid4())[:8]
+        return f"{username}-{slugified_name}-{unique_id}"
 
 class ManagedProfileBase(BaseModel):
     """Esquema base para perfil gestionado."""
@@ -60,11 +59,7 @@ class ManagedProfileRead(ManagedProfileBase):
     
     class Config:
         populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
-# Solo definir si realmente necesitas este esquema
 if TYPE_CHECKING:
     from app.models.user_model import UserRead
 
@@ -73,4 +68,4 @@ class ManagedProfileReadWithManager(ManagedProfileRead):
     manager_user: "UserRead"
 
 class ManagedProfileUpdate(BaseModel):
-   pass
+    pass
