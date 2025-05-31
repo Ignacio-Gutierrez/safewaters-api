@@ -2,12 +2,9 @@ from typing import List, Optional
 from beanie import Document, Indexed
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
-from bson import ObjectId
 
 class User(Document):
-    """
-    Modelo de usuario para autenticación y gestión.
-    """
+    """Modelo de usuario para autenticación y gestión."""
     username: Indexed(str, unique=True)
     email: Indexed(str, unique=True) 
     password_hash: str
@@ -16,7 +13,6 @@ class User(Document):
     class Settings:
         collection = "users"
 
-# Esquemas Pydantic
 class UserBase(BaseModel):
     """Esquema base para usuario."""
     username: str
