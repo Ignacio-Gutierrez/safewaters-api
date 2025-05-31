@@ -10,6 +10,7 @@ from fastapi import APIRouter
 from .endpoints.urls_check import router as urls_check_router
 from .endpoints.auth import router as auth_router
 from .endpoints.managed_profile import router as profiles_router
+from .endpoints.blocking_rule import router as blocking_rules_router  # Asegúrate de que esta línea esté presente
 
 api_router = APIRouter()
 """
@@ -46,6 +47,16 @@ al :data:`api_router` bajo el prefijo ``/managed_profiles``. Estas rutas permite
 las operaciones CRUD para perfiles gestionados y su vinculación con extensiones.
 """
 
+api_router.include_router(blocking_rules_router, prefix="/rules", tags=["Reglas de Bloqueo"])
+"""
+Inclusión del router para las reglas de bloqueo.
+
+Las rutas definidas en :mod:`app.api.endpoints.blocking_rule.router` se añaden
+al :data:`api_router` bajo el prefijo ``/rules``. Estas rutas permiten
+la creación, obtención y gestión de reglas de bloqueo asociadas a perfiles gestionados.
+"""
+
+
 # api_router.include_router(navigation_history_router, prefix="/navigation_history", tags=["Historial de Navegación"]) # type: ignore
 # """
 # Inclusión del router para el historial de navegación.
@@ -54,5 +65,3 @@ las operaciones CRUD para perfiles gestionados y su vinculación con extensiones
 # al :data:`api_router` bajo el prefijo ``/navigation_history``. Estas rutas permiten
 # las operaciones CRUD para el historial de navegación de los perfiles gestionados.
 # """
-
-# api_router.include_router(blocking_rule_router, tags=["Reglas de Bloqueo"])

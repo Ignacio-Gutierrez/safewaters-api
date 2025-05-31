@@ -1,199 +1,111 @@
-"""
-Módulo de rutas para las reglas de bloqueo de perfiles gestionados.
-
-Define los endpoints de la API para crear, leer, actualizar y eliminar
-reglas de bloqueo asociadas a los perfiles gestionados por los usuarios.
-"""
-from typing import List
-
-from fastapi import APIRouter, Depends, status, Query
-from sqlmodel import Session
-
-from app.database import get_session
-from app.api.services import blocking_rule_service
-from app.models.blocking_rule_model import (
-    BlockingRuleCreate,
-    BlockingRuleRead,
-    BlockingRuleUpdate,
-)
+import logging
+import traceback
+from fastapi import APIRouter, HTTPException, Depends, status, Path, Query
+from typing import List, Optional
+from app.api.services.blocking_rule_service import blocking_rule_service
+from app.models.blocking_rule_model import BlockingRuleCreate, BlockingRuleRead, BlockingRuleUpdate
 from app.models.user_model import User
 from app.core.security import get_current_user
 
 router = APIRouter()
-"""
-Instancia de :class:`fastapi.APIRouter` para registrar las rutas relacionadas con las reglas de bloqueo.
-"""
 
-@router.post(
-    "/managed-profiles/{managed_profile_id}/blocking-rules/",
-    response_model=BlockingRuleRead,
-    status_code=status.HTTP_201_CREATED,
-    tags=["Reglas de Bloqueo"],
-    summary="Crear una nueva regla de bloqueo para un perfil gestionado"
-)
-def create_blocking_rule_for_managed_profile(
-    managed_profile_id: int,
-    blocking_rule_in: BlockingRuleCreate,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+@router.post("/profile/{profile_id}", response_model=BlockingRuleRead, status_code=status.HTTP_201_CREATED)
+async def create_blocking_rule(
+    profile_id: str = Path(..., description="ID del perfil al que se asignará la regla"),
+    rule_data: BlockingRuleCreate = ...,
+    current_user: User = Depends(get_current_user)
 ) -> BlockingRuleRead:
     """
-    Crea una nueva regla de bloqueo para un perfil gestionado específico.
-
-    El usuario autenticado debe ser el propietario del perfil gestionado.
-
-    :param managed_profile_id: El ID del perfil gestionado para el cual se crea la regla.
-    :type managed_profile_id: int
-    :param blocking_rule_in: Los datos para la nueva regla de bloqueo.
-    :type blocking_rule_in: app.models.blocking_rule_model.BlockingRuleCreate
-    :param session: Sesión de base de datos inyectada.
-    :type session: sqlmodel.Session
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo creada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Propagada desde el servicio si el perfil no se encuentra (404)
-                           o el usuario no está autorizado (403).
+    Crea una nueva regla de bloqueo para un perfil específico.
+    
+    - **profile_id**: ID del perfil al que pertenecerá la regla
+    - **rule_type**: Tipo de regla (DOMAIN, URL, KEYWORD)
+    - **rule_value**: Valor de la regla (dominio, URL o palabra clave)
+    - **active**: Si la regla está activa (por defecto True)
+    - **description**: Descripción opcional de la regla
     """
-    return blocking_rule_service.create_blocking_rule_for_profile_service(
-        session=session,
-        managed_profile_id=managed_profile_id,
-        blocking_rule_in=blocking_rule_in,
-        current_user=current_user,
-    )
+    try:
+        
+        result = await blocking_rule_service.create_rule(rule_data, profile_id, current_user)
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
 
-@router.get(
-    "/managed-profiles/{managed_profile_id}/blocking-rules/",
-    response_model=List[BlockingRuleRead],
-    tags=["Reglas de Bloqueo"],
-    summary="Obtener todas las reglas de bloqueo para un perfil gestionado"
-)
-def read_blocking_rules_for_managed_profile(
-    managed_profile_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+@router.get("/profile/{profile_id}", response_model=List[BlockingRuleRead])
+async def get_profile_rules(
+    profile_id: str = Path(..., description="ID del perfil"),
+    current_user: User = Depends(get_current_user)
 ) -> List[BlockingRuleRead]:
     """
-    Obtiene todas las reglas de bloqueo para un perfil gestionado específico.
-
-    El usuario autenticado debe ser el propietario del perfil.
-
-    :param managed_profile_id: El ID del perfil gestionado.
-    :type managed_profile_id: int
-    :param session: Sesión de base de datos inyectada.
-    :type session: sqlmodel.Session
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: Una lista de todas las reglas de bloqueo para el perfil especificado.
-    :rtype: List[app.models.blocking_rule_model.BlockingRuleRead]
-    :raises HTTPException: Propagada desde el servicio si el perfil no se encuentra (404)
-                           o el usuario no está autorizado (403).
+    Obtiene todas las reglas de bloqueo de un perfil específico.
     """
-    return blocking_rule_service.get_blocking_rules_for_profile_service(
-        session=session,
-        managed_profile_id=managed_profile_id,
-        current_user=current_user,
-    )
+    try:
+        return await blocking_rule_service.get_profile_rules(profile_id, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al obtener las reglas"
+        )
 
-@router.get(
-    "/blocking-rules/{blocking_rule_id}",
-    response_model=BlockingRuleRead,
-    tags=["Reglas de Bloqueo"],
-    summary="Obtener una regla de bloqueo específica por ID"
-)
-def read_blocking_rule_by_id(
-    blocking_rule_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+@router.patch("/{rule_id}", response_model=BlockingRuleRead)
+async def update_blocking_rule(
+    rule_id: str = Path(..., description="ID de la regla a actualizar"),
+    update_data: BlockingRuleUpdate = ...,
+    current_user: User = Depends(get_current_user)
 ) -> BlockingRuleRead:
     """
-    Obtiene una regla de bloqueo específica por su ID.
-
-    El usuario autenticado debe ser el propietario del perfil gestionado
-    asociado a esta regla.
-
-    :param blocking_rule_id: El ID de la regla de bloqueo a obtener.
-    :type blocking_rule_id: int
-    :param session: Sesión de base de datos inyectada.
-    :type session: sqlmodel.Session
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo solicitada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Propagada desde el servicio si la regla no se encuentra (404)
-                           o el usuario no está autorizado (403).
+    Actualiza una regla de bloqueo.
+    
+    Solo se pueden modificar reglas que pertenecen a perfiles del usuario autenticado.
     """
-    return blocking_rule_service.get_blocking_rule_by_id_service(
-        session=session, blocking_rule_id=blocking_rule_id, current_user=current_user
-    )
+    try:
+        
+        result = await blocking_rule_service.update_rule(rule_id, update_data, current_user)
+        return result
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error interno del servidor: {str(e)}"
+        )
 
-@router.put(
-    "/blocking-rules/{blocking_rule_id}",
-    response_model=BlockingRuleRead,
-    tags=["Reglas de Bloqueo"],
-    summary="Actualizar una regla de bloqueo existente"
-)
-def update_blocking_rule(
-    blocking_rule_id: int,
-    blocking_rule_in: BlockingRuleUpdate,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> BlockingRuleRead:
-    """
-    Actualiza una regla de bloqueo existente.
-
-    El usuario autenticado debe ser el propietario del perfil gestionado
-    asociado a esta regla.
-
-    :param blocking_rule_id: El ID de la regla de bloqueo a actualizar.
-    :type blocking_rule_id: int
-    :param blocking_rule_in: Los datos para actualizar la regla.
-    :type blocking_rule_in: app.models.blocking_rule_model.BlockingRuleUpdate
-    :param session: Sesión de base de datos inyectada.
-    :type session: sqlmodel.Session
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo actualizada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Propagada desde el servicio si la regla no se encuentra (404)
-                           o el usuario no está autorizado (403).
-    """
-    return blocking_rule_service.update_blocking_rule_service(
-        session=session,
-        blocking_rule_id=blocking_rule_id,
-        blocking_rule_in=blocking_rule_in,
-        current_user=current_user,
-    )
-
-@router.delete(
-    "/blocking-rules/{blocking_rule_id}",
-    response_model=BlockingRuleRead,
-    tags=["Reglas de Bloqueo"],
-    summary="Eliminar una regla de bloqueo"
-)
+@router.delete("/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_blocking_rule(
-    blocking_rule_id: int,
-    session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-) -> BlockingRuleRead:
+    rule_id: str = Path(..., description="ID de la regla a eliminar"),
+    current_user: User = Depends(get_current_user)
+):
     """
     Elimina una regla de bloqueo.
-
-    El usuario autenticado debe ser el propietario del perfil gestionado
-    asociado a esta regla. No se permite la eliminación si la regla
-    está asociada a entradas del historial de navegación.
-
-    :param blocking_rule_id: El ID de la regla de bloqueo a eliminar.
-    :type blocking_rule_id: int
-    :param session: Sesión de base de datos inyectada.
-    :type session: sqlmodel.Session
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo eliminada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Propagada desde el servicio si la regla no se encuentra (404),
-                           el usuario no está autorizado (403), o la regla está en uso (409).
+    
+    Solo se pueden eliminar reglas que pertenecen a perfiles del usuario autenticado.
     """
-    return await blocking_rule_service.delete_blocking_rule_service(
-        session=session, blocking_rule_id=blocking_rule_id, current_user=current_user
-    )
+    try:
+        await blocking_rule_service.delete_rule(rule_id, current_user)
+        return
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )

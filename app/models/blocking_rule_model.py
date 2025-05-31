@@ -1,43 +1,80 @@
-from typing import Optional
-from sqlmodel import Field, Relationship, SQLModel
+from typing import Optional, TYPE_CHECKING
+from beanie import Document, Link
+from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .managed_profile_model import ManagedProfile
+# Importación directa para evitar problemas de referencia circular
+from app.models.managed_profile_model import ManagedProfile
 
 class RuleType(str, Enum):
-    URL_EXACTA = 'URL_EXACTA'
-    DOMINIO = 'DOMINIO'
-    PALABRA_CLAVE_URL = 'PALABRA_CLAVE_URL'
+    """Tipos de reglas de bloqueo disponibles."""
+    DOMAIN = "DOMAIN"
+    URL = "URL"
+    KEYWORD = "KEYWORD"
 
-class BlockingRuleBase(SQLModel):
-    rule_type: RuleType = Field(nullable=False)
-    rule_value: str = Field(max_length=255, nullable=False)
-    description: Optional[str] = Field(default=None, max_length=255, nullable=True)
-    is_active: bool = Field(default=True, nullable=False)
+class BlockingRule(Document):
+    """
+    Modelo para reglas de bloqueo de contenido.
+    
+    Define reglas específicas que determinan qué contenido
+    debe ser bloqueado para un perfil determinado.
+    """
+    profile: Link[ManagedProfile]
+    rule_type: RuleType
+    rule_value: str
+    active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    description: Optional[str] = None
+    
+    class Settings:
+        collection = "blocking_rules"
+        indexes = [
+            [("profile", 1), ("active", 1)],
+        ]
 
-
-class BlockingRule(BlockingRuleBase, table=True):
-    __tablename__ = "blocking_rules"
-
-    id: Optional[int] = Field(default=None, primary_key=True, index=True)
-    managed_profile_id: int = Field(foreign_key="managed_profiles.id", nullable=False, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-
-    managed_profile: Optional["ManagedProfile"] = Relationship(back_populates="blocking_rules")
-
+# Esquemas Pydantic
+class BlockingRuleBase(BaseModel):
+    """Esquema base para reglas de bloqueo."""
+    rule_type: RuleType
+    rule_value: str
+    active: bool = True
+    description: Optional[str] = None
 
 class BlockingRuleCreate(BlockingRuleBase):
-    pass
-
+    """Esquema para crear regla de bloqueo."""
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "rule_type": "KEYWORD",
+                "rule_value": "exampl",
+                "active": True,
+                "description": "Bloquear acceso al dominio example.com"
+            }
+        }
 
 class BlockingRuleRead(BlockingRuleBase):
-    id: int
-    managed_profile_id: int
+    """Esquema para leer regla de bloqueo."""
+    id: str
     created_at: datetime
 
+if TYPE_CHECKING:
+    from app.models.managed_profile_model import ManagedProfileRead
 
-class BlockingRuleUpdate(SQLModel):
-    is_active: Optional[bool] = Field(default=None)
+class BlockingRuleReadWithProfile(BlockingRuleRead):
+    """Esquema con información del perfil."""
+    profile: "ManagedProfileRead"
+
+class BlockingRuleUpdate(BaseModel):
+    """Esquema para actualizar regla de bloqueo."""
+    active: Optional[bool] = None
+    description: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "active": False,
+                "description": "Nueva descripción"
+            }
+        }

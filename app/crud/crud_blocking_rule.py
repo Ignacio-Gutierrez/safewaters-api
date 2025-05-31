@@ -1,170 +1,122 @@
+import logging
 from typing import List, Optional
+from beanie import PydanticObjectId
+from app.models.blocking_rule_model import BlockingRule, BlockingRuleCreate
+from app.models.managed_profile_model import ManagedProfile
+from app.models.user_model import User
 
-from sqlmodel import Session, select, func
-from app.models.blocking_rule_model import BlockingRule, BlockingRuleCreate, BlockingRuleUpdate
+logger = logging.getLogger(__name__)
 
-
-def create_blocking_rule(
-    session: Session, 
-    blocking_rule_in: BlockingRuleCreate,
-    managed_profile_id: int
-) -> BlockingRule:
-    """
-    Crea una nueva regla de bloqueo asociada a un perfil gestionado.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param blocking_rule_in: Los datos para la nueva regla de bloqueo.
-                             Se espera un objeto compatible con BlockingRuleCreate.
-    :type blocking_rule_in: app.models.blocking_rule_model.BlockingRuleCreate
-    :param managed_profile_id: El ID del perfil gestionado al que pertenece esta regla.
-    :type managed_profile_id: int
-    :return: La regla de bloqueo creada y persistida en la base de datos.
-    :rtype: app.models.blocking_rule_model.BlockingRule
-    """
-    db_blocking_rule = BlockingRule.model_validate(
-        blocking_rule_in, update={"managed_profile_id": managed_profile_id}
-    )
-    session.add(db_blocking_rule)
-    session.commit()
-    session.refresh(db_blocking_rule)
-    return db_blocking_rule
-
-
-def get_blocking_rule(
-        session: Session, 
-        blocking_rule_id: int
-) -> Optional[BlockingRule]:
-    """
-    Obtiene una regla de bloqueo por su ID.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param blocking_rule_id: El ID de la regla de bloqueo a recuperar.
-    :type blocking_rule_id: int
-    :return: La regla de bloqueo si se encuentra, de lo contrario None.
-    :rtype: Optional[app.models.blocking_rule_model.BlockingRule]
-    """
-    return session.get(BlockingRule, blocking_rule_id)
-
-
-def get_blocking_rules_by_managed_profile(
-    session: Session, 
-    managed_profile_id: int
-) -> List[BlockingRule]:
-    """
-    Obtiene todas las reglas de bloqueo para un perfil gestionado específico.
-    Las reglas se devuelven ordenadas por ID (implícitamente por orden de creación).
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param managed_profile_id: El ID del perfil gestionado.
-    :type managed_profile_id: int
-    :return: Una lista de todas las reglas de bloqueo para el perfil especificado.
-             La lista puede estar vacía si no hay reglas.
-    :rtype: List[app.models.blocking_rule_model.BlockingRule]
-    """
-    statement = (
-        select(BlockingRule)
-        .where(BlockingRule.managed_profile_id == managed_profile_id)
-        .order_by(BlockingRule.id)
-    )
-    results = session.exec(statement)
-    blocking_rules = results.all()
-    return list(blocking_rules)
-
-
-def update_blocking_rule(
-    session: Session, 
-    db_blocking_rule: BlockingRule, 
-    blocking_rule_in: BlockingRuleUpdate
-) -> BlockingRule:
-    """
-    Actualiza una regla de bloqueo existente.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param db_blocking_rule: El objeto BlockingRule existente a actualizar.
-    :type db_blocking_rule: app.models.blocking_rule_model.BlockingRule
-    :param blocking_rule_in: Un objeto BlockingRuleUpdate con los campos a actualizar.
-    :type blocking_rule_in: app.models.blocking_rule_model.BlockingRuleUpdate
-    :return: El objeto BlockingRule actualizado.
-    :rtype: app.models.blocking_rule_model.BlockingRule
-    """
-    if blocking_rule_in.is_active is not None:
-        db_blocking_rule.is_active = blocking_rule_in.is_active
-        session.add(db_blocking_rule)
-        session.commit()
-        session.refresh(db_blocking_rule)
-    return db_blocking_rule
-
-
-def delete_blocking_rule(
-    session: Session, 
-    blocking_rule_id: int
-) -> Optional[BlockingRule]:
-    """
-    Elimina una regla de bloqueo por su ID.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param blocking_rule_id: El ID de la regla de bloqueo a eliminar.
-    :type blocking_rule_id: int
-    :return: El objeto BlockingRule eliminado si se encontró y eliminó, de lo contrario None.
-    :rtype: Optional[app.models.blocking_rule_model.BlockingRule]
-    """
-    db_blocking_rule = session.get(BlockingRule, blocking_rule_id)
-    if db_blocking_rule:
-        session.delete(db_blocking_rule)
-        session.commit()
-        return db_blocking_rule
-    return None
-
-
-async def count_blocking_rules_for_profile(
-    session: Session,
-    profile_id: int
-) -> int:
-    """
-    Cuenta el número total de reglas de bloqueo para un perfil gestionado.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param profile_id: El ID del perfil gestionado.
-    :type profile_id: int
-    :return: El número total de reglas de bloqueo.
-    :rtype: int
-    """
-    statement = (
-        select(func.count())
-        .select_from(BlockingRule)
-        .where(BlockingRule.managed_profile_id == profile_id)
-    )
-    count_value = session.scalar(statement)
+class CRUDBlockingRule:
+    """CRUD operations para BlockingRule."""
     
-    return count_value if count_value is not None else 0
+    async def create(self, rule_data: BlockingRuleCreate, profile_id: str, current_user: User) -> BlockingRule:
+        """Crea una nueva regla de bloqueo para un perfil."""
+        # Convertir profile_id a PydanticObjectId
+        profile_object_id = PydanticObjectId(profile_id)
+        
+        # Verificar que el perfil existe y pertenece al usuario
+        profile = await ManagedProfile.find_one(
+            ManagedProfile.id == profile_object_id,
+            ManagedProfile.manager_user.id == current_user.id
+        )
+        
+        if not profile:
+            raise ValueError("Perfil no encontrado o no tienes permisos para crear reglas en él")
+        
+        # Verificar que no existe una regla duplicada
+        existing_rule = await self.get_by_profile_and_value(
+            profile_object_id, 
+            rule_data.rule_type, 
+            rule_data.rule_value
+        )
+        
+        if existing_rule:
+            raise ValueError(f"Ya existe una regla {rule_data.rule_type} con el valor '{rule_data.rule_value}' para este perfil")
+        
+        # Crear la regla
+        rule = BlockingRule(
+            profile=profile,
+            rule_type=rule_data.rule_type,
+            rule_value=rule_data.rule_value,
+            active=rule_data.active,
+            description=rule_data.description
+        )
+        
+        await rule.create()
+        return rule
+    
+    async def get_by_profile_and_value(
+        self, 
+        profile_id: PydanticObjectId, 
+        rule_type: str, 
+        rule_value: str
+    ) -> Optional[BlockingRule]:
+        """Busca una regla por perfil, tipo y valor."""
+        return await BlockingRule.find_one(
+            BlockingRule.profile.id == profile_id,
+            BlockingRule.rule_type == rule_type,
+            BlockingRule.rule_value == rule_value
+        )
+    
+    async def get_by_profile(self, profile_id: PydanticObjectId) -> List[BlockingRule]:
+        """Obtiene todas las reglas de un perfil."""
+        return await BlockingRule.find(BlockingRule.profile.id == profile_id).to_list()
+    
+    async def get_by_user_profiles(self, user_id: PydanticObjectId) -> List[BlockingRule]:
+        """Obtiene todas las reglas de todos los perfiles de un usuario."""
+        # Primero obtenemos todos los perfiles del usuario
+        user_profiles = await ManagedProfile.find(ManagedProfile.manager_user.id == user_id).to_list()
+        profile_ids = [profile.id for profile in user_profiles]
+        
+        # Luego buscamos todas las reglas de esos perfiles
+        if not profile_ids:
+            return []
+        
+        return await BlockingRule.find({"profile.$id": {"$in": profile_ids}}).to_list()
+    
+    async def delete_by_id_and_user(self, rule_id: PydanticObjectId, user_id: PydanticObjectId) -> bool:
+        """Elimina una regla si pertenece a un perfil del usuario."""
+        rule = await self.get_by_id_and_user(rule_id, user_id)
+        if not rule:
+            return False
+        
+        await rule.delete()
+        return True
+    
+    async def update_by_id_and_user(
+        self, 
+        rule_id: PydanticObjectId, 
+        user_id: PydanticObjectId, 
+        update_data: dict
+    ) -> Optional[BlockingRule]:
+        """Actualiza una regla si pertenece a un perfil del usuario."""
+        rule = await self.get_by_id_and_user(rule_id, user_id)
+        if not rule:
+            return None
+        
+        for field, value in update_data.items():
+            if hasattr(rule, field):
+                setattr(rule, field, value)
+        
+        await rule.save()
+        return rule
 
-async def get_active_blocking_rules_for_profile(
-    session: Session, 
-    managed_profile_id: int
-) -> List[BlockingRule]:
-    """
-    Obtiene todas las reglas de bloqueo ACTIVAS para un perfil gestionado específico.
+    async def get_by_id_and_user(self, rule_id: PydanticObjectId, user_id: PydanticObjectId) -> Optional[BlockingRule]:
+        """Obtiene una regla por ID si pertenece a un perfil del usuario."""
+        try:
+            rule = await BlockingRule.get(rule_id)
+            if not rule:
+                return None
+            
+            # Verificar que el perfil de la regla pertenece al usuario
+            await rule.fetch_link(BlockingRule.profile)
+            if rule.profile.manager_user.id != user_id:
+                return None
+            
+            return rule
+        except Exception as e:
+            logger.error(f"Error getting rule by id and user: {str(e)}")
+            return None
 
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param managed_profile_id: El ID del perfil gestionado.
-    :type managed_profile_id: int
-    :return: Una lista de reglas de bloqueo activas para el perfil especificado.
-             La lista puede estar vacía si no hay reglas activas.
-    :rtype: List[app.models.blocking_rule_model.BlockingRule]
-    """
-    statement = (
-        select(BlockingRule)
-        .where(BlockingRule.managed_profile_id == managed_profile_id)
-        .where(BlockingRule.is_active == True)
-        .order_by(BlockingRule.id)
-    )
-    results = session.exec(statement)
-    blocking_rules = results.all()
-    return list(blocking_rules)
+blocking_rule_crud = CRUDBlockingRule()
