@@ -18,11 +18,7 @@ from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
 from app.config import settings
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import Session
 
-from app.database import get_session
-from app.models.user_model import User
-from app.crud import crud_user
 from app.schemas.token import TokenPayload 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -157,17 +153,13 @@ de las cabeceras de autorización "Bearer". El ``tokenUrl`` apunta al endpoint
 de login donde los clientes pueden obtener un token (e.g., ``/api/auth/login``).
 """
 
-async def get_current_user(
-    session: Session = Depends(get_session), token: str = Depends(oauth2_scheme)
-) -> User:
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     """
     Dependencia de FastAPI para obtener el usuario actual a partir de un token JWT.
 
     Este es un callable que FastAPI puede usar en los parámetros de las operaciones de ruta
     para requerir autenticación y obtener el usuario autenticado.
 
-    :param session: Sesión de base de datos inyectada por dependencia.
-    :type session: sqlmodel.Session
     :param token: Token JWT extraído de la cabecera de autorización por ``oauth2_scheme``.
     :type token: str
     :raises HTTPException: Con código de estado 401 (UNAUTHORIZED) si el token es inválido,
@@ -175,27 +167,28 @@ async def get_current_user(
     :return: El objeto :class:`app.models.user_model.User` correspondiente al token.
     :rtype: app.models.user_model.User
     """
+    from app.crud import crud_user
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudieron validar las credenciales",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    token_expired_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="El token ha expirado",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
+    
     try:
         payload = decode_token(token)
         if payload.sub is None:
             raise credentials_exception
     except ExpiredSignatureError:
-        raise token_expired_exception
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="El token ha expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     except InvalidTokenError: 
         raise credentials_exception
     
-    user = await crud_user.get_user_by_email(session=session, email=payload.sub) # Usar payload.sub
+    user = await crud_user.get_user_by_email(email=payload.sub)
     if user is None:
         raise credentials_exception
     return user

@@ -4,6 +4,11 @@ python-memcached == 1.62
 pydantic-settings
 httpx
 
+# Database
+pymongo[srv]==3.12
+motor
+beanie
+
 sqlmodel
 pyjwt
 passlib[bcrypt]

@@ -1,66 +1,97 @@
 """
-Módulo de configuración y gestión de la base de datos.
+Módulo de configuración y gestión de la base de datos MongoDB.
 
-Este módulo se encarga de establecer la conexión con la base de datos
-utilizando la URL definida en la configuración de la aplicación.
-Proporciona un motor (engine) de SQLAlchemy para interactuar con la base de datos
-y funciones para crear las tablas y obtener sesiones de base de datos.
+Este módulo se encarga de establecer la conexión con MongoDB
+utilizando Motor (async MongoDB driver) y Beanie (ODM).
+Proporciona funciones para inicializar la base de datos y configurar
+los modelos Document para MongoDB.
 """
-from sqlmodel import create_engine, Session, SQLModel
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
 from app.config import settings
+import logging
 
-SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+logger = logging.getLogger(__name__)
+
+MONGODB_URL = settings.MONGODB_URL
 """
-URL de conexión a la base de datos.
+URL de conexión a MongoDB.
 
-Se obtiene de la configuración de la aplicación (``settings.DATABASE_URL``).
-Ejemplo: ``"sqlite:///./safewaters.db"`` o ``"postgresql://user:password@host:port/database"``.
-"""
-
-connect_args = {}
-if SQLALCHEMY_DATABASE_URL and "sqlite" in SQLALCHEMY_DATABASE_URL.lower():
-    connect_args = {"check_same_thread": False}
-"""
-Argumentos de conexión adicionales para el motor de SQLAlchemy.
-
-Para bases de datos SQLite, se establece ``{"check_same_thread": False}``
-para permitir que el motor sea utilizado por múltiples hilos, lo cual es
-necesario para FastAPI cuando se usa SQLite.
+Se obtiene de la configuración de la aplicación (``settings.MONGODB_URL``).
+Ejemplo: ``"mongodb://localhost:27017"`` o ``"mongodb://user:password@host:port/database"``.
 """
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args=connect_args,
-    echo=True # Imprime las sentencias SQL ejecutadas, útil para depuración.
-)
+DATABASE_NAME = settings.DATABASE_NAME
 """
-Motor (engine) de SQLAlchemy para la conexión a la base de datos.
+Nombre de la base de datos MongoDB.
 
-Se crea utilizando la :data:`SQLALCHEMY_DATABASE_URL` y los :data:`connect_args`.
-La opción ``echo=True`` hace que SQLAlchemy imprima todas las sentencias SQL
-que ejecuta, lo cual es útil durante el desarrollo y la depuración.
+Se obtiene de la configuración de la aplicación (``settings.DATABASE_NAME``).
+Ejemplo: ``"safewaters"``.
 """
 
-def create_db_and_tables():
+# Cliente MongoDB global
+mongodb_client: AsyncIOMotorClient = None
+"""
+Cliente global de MongoDB.
+
+Se inicializa durante el startup de la aplicación mediante :func:`init_database`.
+"""
+
+async def init_database():
     """
-    Crea todas las tablas en la base de datos.
-
-    Utiliza los metadatos de ``SQLModel`` para encontrar todas las definiciones
-    de tablas (modelos) y las crea en la base de datos conectada
-    a través del :data:`engine` si no existen previamente.
+    Inicializa la conexión a MongoDB y configura Beanie ODM.
+    
+    Esta función reemplaza a create_db_and_tables() del mundo SQLModel.
+    Se ejecuta durante el startup de FastAPI para establecer la conexión
+    con MongoDB e inicializar todos los modelos Document.
+    
+    :raises Exception: Si no se puede conectar a MongoDB o inicializar Beanie.
     """
-    SQLModel.metadata.create_all(engine)
+    global mongodb_client
+    
+    try:
+        # Crear cliente MongoDB
+        mongodb_client = AsyncIOMotorClient(MONGODB_URL)
+        
+        # Seleccionar base de datos
+        database = mongodb_client[DATABASE_NAME]
+        
+        # Verificar conexión
+        await mongodb_client.admin.command('ping')
+        logger.info(f"Conectado exitosamente a MongoDB: {DATABASE_NAME}")
+        
+        # Importar todos los modelos Document
+        from app.models.user_model import User
+        from app.models.managed_profile_model import ManagedProfile
+        from app.models.blocking_rule_model import BlockingRule
+        from app.models.navigation_history_model import NavigationHistory
+        
+        # Inicializar Beanie con todos los modelos
+        await init_beanie(
+            database=database,
+            document_models=[
+                User,
+                ManagedProfile, 
+                BlockingRule,
+                NavigationHistory
+            ]
+        )
+        
+        logger.info("Beanie ODM inicializado correctamente con todos los modelos")
+        
+    except Exception as e:
+        logger.error(f"Error al inicializar MongoDB: {str(e)}")
+        raise
 
 
-def get_session():
+async def close_database():
     """
-    Generador de sesiones de base de datos.
-
-    Proporciona una sesión de SQLAlchemy para interactuar con la base de datos.
-    La sesión se cierra automáticamente al finalizar el bloque ``with``.
-
-    :yields: Session: Una instancia de ``sqlmodel.Session``.
-    :rtype: collections.abc.Generator[sqlmodel.Session, None, None]
+    Cierra la conexión a MongoDB.
+    
+    Función opcional para cerrar limpiamente la conexión durante el shutdown
+    de la aplicación FastAPI.
     """
-    with Session(engine) as session:
-        yield session
+    global mongodb_client
+    if mongodb_client:
+        mongodb_client.close()
+        logger.info("Conexión a MongoDB cerrada")

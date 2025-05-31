@@ -2,20 +2,18 @@
 Módulo principal de la aplicación FastAPI SafeWaters.
 
 Este módulo inicializa la aplicación FastAPI, configura CORS (Cross-Origin Resource Sharing),
-establece eventos de inicio para la creación de la base de datos y registra los routers de la API.
+establece eventos de inicio para la inicialización de MongoDB y registra los routers de la API.
 """
 from fastapi import FastAPI
 from app.api.router import api_router
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import engine
-from sqlmodel import SQLModel
-import app.models
+from app.database import init_database, close_database
 
 app = FastAPI(
     title="SafeWaters API",
     description="API para detección de amenazas y control parental",
-    version="0.5.0"
+    version="0.6.0"
 )
 """
 Instancia principal de la aplicación FastAPI.
@@ -24,21 +22,28 @@ Configurada con un título, descripción y versión para la documentación autom
 
 :title: SafeWaters API
 :description: API para detección de amenazas y control parental.
-:version: 0.5.0
+:version: 0.6.0
 """
 
 @app.on_event("startup")
-def on_startup():
+async def startup_event():
     """
     Función de evento que se ejecuta al iniciar la aplicación FastAPI.
 
-    Se encarga de crear todas las tablas en la base de datos definidas por los modelos SQLModel
-    (importados a través de ``app.models``), si estas no existen previamente.
-    Utiliza el motor de base de datos :data:`app.database.engine` configurado.
-    Imprime un mensaje en la consola indicando el resultado de la operación.
+    Se encarga de inicializar la conexión a MongoDB y configurar Beanie ODM.
     """
-    SQLModel.metadata.create_all(engine)
-    print("Base de datos y tablas verificadas/creadas (si no existían).")
+    await init_database()
+    print("Base de datos MongoDB inicializada correctamente.")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Función de evento que se ejecuta al cerrar la aplicación FastAPI.
+    
+    Cierra limpiamente la conexión a MongoDB.
+    """
+    await close_database()
+    print("Conexión a MongoDB cerrada.")
 
 origins = [
     "*" # Permite todos los orígenes (para desarrollo)
