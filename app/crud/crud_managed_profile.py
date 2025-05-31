@@ -40,5 +40,33 @@ class CRUDManagedProfile:
     async def get_by_user(self, user_id: PydanticObjectId) -> List[ManagedProfile]:
         """Obtiene todos los perfiles de un usuario."""
         return await ManagedProfile.find(ManagedProfile.manager_user.id == user_id).to_list()
+    
+    async def get_by_id(self, profile_id: PydanticObjectId) -> Optional[ManagedProfile]:
+        """Busca un perfil por ID."""
+        return await ManagedProfile.get(profile_id)
+    
+    async def delete_by_id_and_user(self, profile_id: PydanticObjectId, user_id: PydanticObjectId) -> bool:
+        """
+        Elimina un perfil por ID solo si pertenece al usuario especificado.
+        Retorna True si se eliminó correctamente, False si no se encontró.
+        """
+        profile = await ManagedProfile.find_one(
+            ManagedProfile.id == profile_id,
+            ManagedProfile.manager_user.id == user_id
+        )
+        
+        if not profile:
+            return False
+        
+        await profile.delete()
+        return True
+    
+    async def check_ownership(self, profile_id: PydanticObjectId, user_id: PydanticObjectId) -> bool:
+        """Verifica si un perfil pertenece a un usuario específico."""
+        profile = await ManagedProfile.find_one(
+            ManagedProfile.id == profile_id,
+            ManagedProfile.manager_user.id == user_id
+        )
+        return profile is not None
 
 managed_profile_crud = CRUDManagedProfile()
