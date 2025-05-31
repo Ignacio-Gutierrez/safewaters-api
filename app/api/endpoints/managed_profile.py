@@ -54,6 +54,7 @@ async def delete_managed_profile(
     Elimina un perfil gestionado.
     
     Solo se pueden eliminar perfiles que pertenecen al usuario autenticado.
+    No se puede eliminar un perfil que tiene reglas de bloqueo asignadas.
     
     - **profile_id**: ID del perfil a eliminar
     """
@@ -61,9 +62,15 @@ async def delete_managed_profile(
         await managed_profile_service.delete_profile(profile_id, current_user)
         return
     except ValueError as e:
+        error_message = str(e)
+        if "reglas de bloqueo asignadas" in error_message:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=error_message
+            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            detail=error_message
         )
     except Exception as e:
         raise HTTPException(

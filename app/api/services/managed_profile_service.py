@@ -51,7 +51,7 @@ class ManagedProfileService:
             if not await managed_profile_crud.check_ownership(profile_object_id, current_user.id):
                 raise ValueError("Perfil no encontrado o no tienes permisos para eliminarlo")
             
-            # Eliminar el perfil
+            # Eliminar el perfil (incluye validación de reglas)
             deleted = await managed_profile_crud.delete_by_id_and_user(profile_object_id, current_user.id)
             
             if not deleted:

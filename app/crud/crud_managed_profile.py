@@ -45,6 +45,13 @@ class CRUDManagedProfile:
         """Busca un perfil por ID."""
         return await ManagedProfile.get(profile_id)
     
+    async def has_blocking_rules(self, profile_id: PydanticObjectId) -> bool:
+        """Verifica si un perfil tiene reglas de bloqueo asignadas."""
+        from app.models.blocking_rule_model import BlockingRule
+        
+        rules_count = await BlockingRule.find(BlockingRule.profile.id == profile_id).count()
+        return rules_count > 0
+    
     async def delete_by_id_and_user(self, profile_id: PydanticObjectId, user_id: PydanticObjectId) -> bool:
         """
         Elimina un perfil por ID solo si pertenece al usuario especificado.
@@ -57,6 +64,10 @@ class CRUDManagedProfile:
         
         if not profile:
             return False
+        
+        # Verificar si el perfil tiene reglas asignadas
+        if await self.has_blocking_rules(profile_id):
+            raise ValueError("No se puede eliminar el perfil porque tiene reglas de bloqueo asignadas")
         
         await profile.delete()
         return True
