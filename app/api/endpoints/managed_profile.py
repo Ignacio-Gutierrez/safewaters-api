@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Path
 from typing import List
 from app.api.services.managed_profile_service import managed_profile_service
 from app.models.managed_profile_model import ManagedProfileCreate, ManagedProfileRead
@@ -43,4 +43,30 @@ async def get_my_profiles(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los perfiles"
+        )
+
+@router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_managed_profile(
+    profile_id: str = Path(..., description="ID del perfil a eliminar"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Elimina un perfil gestionado.
+    
+    Solo se pueden eliminar perfiles que pertenecen al usuario autenticado.
+    
+    - **profile_id**: ID del perfil a eliminar
+    """
+    try:
+        await managed_profile_service.delete_profile(profile_id, current_user)
+        return
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
         )
