@@ -7,9 +7,7 @@ Proporciona rutas para:
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlmodel import Session
 
-from app.database import get_session
 from app.models.user_model import UserCreate, UserRead
 from app.schemas.token import Token
 
@@ -29,19 +27,15 @@ Router de FastAPI para los endpoints de autenticación y gestión de usuarios.
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 async def register_new_user(
-    *,
-    session: Session = Depends(get_session),
     user_in: UserCreate
 ) -> UserRead:
     """
-    Crea un nuevo usuario (manager/padre).
+    Crea un nuevo usuario (manager/admin).
 
     Verifica si el email o username ya existen en la base de datos.
     Valida la fortaleza de la contraseña.
     Si todas las validaciones son exitosas, crea el usuario a través del servicio de usuarios.
 
-    :param session: Sesión de base de datos inyectada por dependencia.
-    :type session: sqlmodel.Session
     :param user_in: Datos del usuario a crear, validados por :class:`app.models.user_model.UserCreate`.
     :type user_in: app.models.user_model.UserCreate
     :raises HTTPException 400: Si el email ya existe.
@@ -50,14 +44,14 @@ async def register_new_user(
     :return: Los datos del usuario creado, excluyendo la contraseña, según :class:`app.models.user_model.UserRead`.
     :rtype: app.models.user_model.UserRead
     """
-    existing_user_by_email = await crud_user.get_user_by_email(session=session, email=user_in.email)
+    existing_user_by_email = await crud_user.get_user_by_email(email=user_in.email)
     if existing_user_by_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ya existe un usuario con este email.",
         )
     
-    existing_user_by_username = await crud_user.get_user_by_username(session=session, username=user_in.username)
+    existing_user_by_username = await crud_user.get_user_by_username(username=user_in.username)
     if existing_user_by_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -73,13 +67,13 @@ async def register_new_user(
             ),
         )
     
-    created_user = await user_service.create_user(session=session, user_in=user_in)
-    return created_user
+    created_user = await user_service.create_user(user_in)
+    
+    return UserRead.from_document(created_user)
 
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(
-    session: Session = Depends(get_session), 
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Token:
     """
@@ -88,8 +82,6 @@ async def login_for_access_token(
     El campo ``username`` del formulario puede ser el email o el username del usuario.
     Autentica al usuario y, si es exitoso, genera y devuelve un token JWT.
 
-    :param session: Sesión de base de datos inyectada por dependencia.
-    :type session: sqlmodel.Session
     :param form_data: Datos del formulario OAuth2 (username y password).
                       ``form_data.username`` puede ser email o username.
     :type form_data: fastapi.security.OAuth2PasswordRequestForm
@@ -98,7 +90,7 @@ async def login_for_access_token(
     :rtype: app.schemas.token.Token
     """
     user = await user_service.authenticate_user(
-        session=session, email_or_username=form_data.username, password=form_data.password
+        email_or_username=form_data.username, password=form_data.password
     )
     if not user:
         raise HTTPException(

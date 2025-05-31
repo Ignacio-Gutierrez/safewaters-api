@@ -1,29 +1,29 @@
 from typing import List, Optional
-from sqlmodel import Field, Relationship, SQLModel
+from beanie import Document, Indexed
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
-from pydantic import EmailStr
+from bson import ObjectId
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .managed_profile_model import ManagedProfile, ManagedProfileRead
+class User(Document):
+    """
+    Modelo de usuario para autenticación y gestión.
+    """
+    username: Indexed(str, unique=True)
+    email: Indexed(str, unique=True) 
+    password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Settings:
+        collection = "users"
 
-
-class UserBase(SQLModel):
-    email: EmailStr = Field(max_length=100, unique=True, index=True, nullable=False)
-    username: str = Field(max_length=50, unique=True, index=True, nullable=False)
-
-
-class User(UserBase, table=True):
-    __tablename__ = "users"
-
-    id: Optional[int] = Field(default=None, primary_key=True, index=True)
-    password_hash: str = Field(max_length=255, nullable=False)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-
-    managed_profiles: List["ManagedProfile"] = Relationship(back_populates="manager_user")
-
+# Esquemas Pydantic
+class UserBase(BaseModel):
+    """Esquema base para usuario."""
+    username: str
+    email: EmailStr
 
 class UserCreate(UserBase):
+    """Esquema para crear usuario."""
     password: str
 
     class Config:
@@ -38,11 +38,27 @@ class UserCreate(UserBase):
                 "password": "aStrongPassword123!",
             }
         }
-
 class UserRead(UserBase):
-    id: int
+    """Esquema para leer usuario."""
+    id: str
     created_at: datetime
+    
+    @classmethod
+    def from_document(cls, user: "User"):
+        """Convierte un documento User a UserRead."""
+        return cls(
+            id=str(user.id),
+            username=user.username,
+            email=user.email,
+            created_at=user.created_at
+        )
 
+    class Config:
+        populate_by_name = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
 class UserReadWithDetails(UserRead):
-    managed_profiles: List["ManagedProfileRead"] = []
+    """Esquema con detalles adicionales."""
+    pass
