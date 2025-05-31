@@ -1,311 +1,120 @@
-"""
-Módulo de servicios para gestionar las reglas de bloqueo de perfiles gestionados.
-
-Este módulo proporciona funciones para crear, leer, actualizar y eliminar
-reglas de bloqueo, asegurando las comprobaciones de autorización necesarias
-basadas en la propiedad del perfil gestionado.
-"""
-from typing import Dict, Any, List
-from fastapi import HTTPException, status
-from sqlmodel import Session
-
-from app.crud import crud_blocking_rule, crud_managed_profile
-from app.crud import crud_navigation_history
+from typing import List
+from beanie import PydanticObjectId
+from app.crud.crud_blocking_rule import blocking_rule_crud
 from app.models.blocking_rule_model import (
-    BlockingRuleCreate,
+    BlockingRule, 
+    BlockingRuleCreate, 
     BlockingRuleRead,
-    BlockingRuleUpdate,
-    RuleType,
+    BlockingRuleUpdate
 )
 from app.models.user_model import User
 
-from app.utils.domain_utils import get_domain_from_url
-
-def create_blocking_rule_for_profile_service(
-    session: Session,
-    managed_profile_id: int,
-    blocking_rule_in: BlockingRuleCreate,
-    current_user: User,
-) -> BlockingRuleRead:
-    """
-    Crea una nueva regla de bloqueo para un perfil gestionado específico.
-
-    Verifica que el `current_user` sea el propietario del perfil gestionado
-    antes de crear la regla.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param managed_profile_id: El ID del perfil gestionado para el cual se crea la regla.
-    :type managed_profile_id: int
-    :param blocking_rule_in: Los datos para la nueva regla de bloqueo.
-    :type blocking_rule_in: app.models.blocking_rule_model.BlockingRuleCreate
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo creada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Si el perfil gestionado no se encuentra (404) o si el usuario
-                           no está autorizado para modificar el perfil (403).
-    """
-    managed_profile = crud_managed_profile.get_managed_profile_by_id(
-        session=session, profile_id=managed_profile_id
-    )
-    if not managed_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Perfil gestionado no encontrado"
-        )
-    if managed_profile.manager_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No autorizado para añadir reglas a este perfil gestionado",
-        )
-
-    db_blocking_rule = crud_blocking_rule.create_blocking_rule(
-        session=session,
-        blocking_rule_in=blocking_rule_in,
-        managed_profile_id=managed_profile_id,
-    )
-    return BlockingRuleRead.model_validate(db_blocking_rule)
-
-
-def get_blocking_rules_for_profile_service(
-    session: Session,
-    managed_profile_id: int,
-    current_user: User,
-) -> List[BlockingRuleRead]:
-    """
-    Obtiene todas las reglas de bloqueo para un perfil gestionado específico.
-
-    Verifica que el `current_user` sea el propietario del perfil gestionado.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param managed_profile_id: El ID del perfil gestionado.
-    :type managed_profile_id: int
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: Una lista de todas las reglas de bloqueo.
-    :rtype: List[app.models.blocking_rule_model.BlockingRuleRead]
-    :raises HTTPException: Si el perfil gestionado no se encuentra (404) o si el usuario
-                           no está autorizado para acceder al perfil (403).
-    """
-    managed_profile = crud_managed_profile.get_managed_profile_by_id(
-        session=session, profile_id=managed_profile_id
-    )
-    if not managed_profile:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Perfil gestionado no encontrado"
-        )
-    if managed_profile.manager_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No autorizado para acceder a las reglas de este perfil gestionado",
-        )
-
-    rules_db = crud_blocking_rule.get_blocking_rules_by_managed_profile(
-        session=session, managed_profile_id=managed_profile_id
-    )
-    return [BlockingRuleRead.model_validate(rule) for rule in rules_db]
-
-
-def get_blocking_rule_by_id_service(
-    session: Session, blocking_rule_id: int, current_user: User
-) -> BlockingRuleRead:
-    """
-    Obtiene una regla de bloqueo específica por su ID.
-
-    Verifica que el `current_user` sea el propietario del perfil gestionado
-    asociado a la regla.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param blocking_rule_id: El ID de la regla de bloqueo a recuperar.
-    :type blocking_rule_id: int
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo solicitada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Si la regla no se encuentra (404) o si el usuario
-                           no está autorizado para acceder a la regla (403).
-    """
-    db_blocking_rule = crud_blocking_rule.get_blocking_rule(
-        session=session, blocking_rule_id=blocking_rule_id
-    )
-    if not db_blocking_rule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Regla de bloqueo no encontrada"
-        )
-
-    managed_profile = crud_managed_profile.get_managed_profile_by_id(
-        session=session, profile_id=db_blocking_rule.managed_profile_id
-    )
-    if not managed_profile or managed_profile.manager_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No autorizado para acceder a esta regla de bloqueo",
-        )
-    return BlockingRuleRead.model_validate(db_blocking_rule)
-
-
-def update_blocking_rule_service(
-    session: Session,
-    blocking_rule_id: int,
-    blocking_rule_in: BlockingRuleUpdate,
-    current_user: User,
-) -> BlockingRuleRead:
-    """
-    Actualiza una regla de bloqueo existente.
-
-    Verifica que el `current_user` sea el propietario del perfil gestionado
-    asociado a la regla.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param blocking_rule_id: El ID de la regla de bloqueo a actualizar.
-    :type blocking_rule_id: int
-    :param blocking_rule_in: Los datos para actualizar la regla de bloqueo.
-    :type blocking_rule_in: app.models.blocking_rule_model.BlockingRuleUpdate
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo actualizada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Si la regla no se encuentra (404) o si el usuario
-                           no está autorizado para modificar la regla (403).
-    """
-    db_blocking_rule = crud_blocking_rule.get_blocking_rule(
-        session=session, blocking_rule_id=blocking_rule_id
-    )
-    if not db_blocking_rule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Regla de bloqueo no encontrada"
-        )
-
-    managed_profile = crud_managed_profile.get_managed_profile_by_id(
-        session=session, profile_id=db_blocking_rule.managed_profile_id
-    )
-    if not managed_profile or managed_profile.manager_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No autorizado para modificar esta regla de bloqueo",
-        )
-
-    updated_rule = crud_blocking_rule.update_blocking_rule(
-        session=session,
-        db_blocking_rule=db_blocking_rule,
-        blocking_rule_in=blocking_rule_in,
-    )
-    return BlockingRuleRead.model_validate(updated_rule)
-
-
-async def delete_blocking_rule_service(
-    session: Session, blocking_rule_id: int, current_user: User
-) -> BlockingRuleRead:
-    """
-    Elimina una regla de bloqueo.
-
-    Verifica que el `current_user` sea el propietario del perfil gestionado
-    asociado a la regla. Impide la eliminación si la regla está asociada
-    a entradas del historial de navegación.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param blocking_rule_id: El ID de la regla de bloqueo a eliminar.
-    :type blocking_rule_id: int
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :return: La regla de bloqueo eliminada.
-    :rtype: app.models.blocking_rule_model.BlockingRuleRead
-    :raises HTTPException: Si la regla no se encuentra (404) o si el usuario
-                           no está autorizado para eliminar la regla (403).
-    """
-    db_blocking_rule = crud_blocking_rule.get_blocking_rule(
-        session=session, blocking_rule_id=blocking_rule_id
-    )
-    if not db_blocking_rule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Regla de bloqueo no encontrada"
-        )
-
-    managed_profile = crud_managed_profile.get_managed_profile_by_id(
-        session=session, profile_id=db_blocking_rule.managed_profile_id
-    )
-    if not managed_profile or managed_profile.manager_user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No autorizado para eliminar esta regla de bloqueo",
-        )
-
-    history_count = await crud_navigation_history.count_navigation_history_by_blocking_rule_id(
-        session=session, blocking_rule_id=blocking_rule_id
-    )
-    if history_count > 0:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="La regla de bloqueo no se puede eliminar porque está asociada a entradas del historial de navegación."
-        )
-
-    deleted_rule = crud_blocking_rule.delete_blocking_rule(
-        session=session, blocking_rule_id=blocking_rule_id
-    )
+class BlockingRuleService:
+    """Servicio para gestionar reglas de bloqueo."""
     
-    if not deleted_rule:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Regla de bloqueo no encontrada para eliminar"
-        )
-    return BlockingRuleRead.model_validate(deleted_rule)
-
-
-async def check_blocking_rules(
-    session: Session, profile_id: int, url: str
-) -> Dict[str, Any]:
-    """
-    Verifica si una URL dada coincide con alguna de las reglas de bloqueo
-    activas para un perfil gestionado específico.
-
-    Maneja diferentes tipos de reglas: URL_EXACTA, DOMINIO, PALABRA_CLAVE_URL.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param profile_id: El ID del perfil gestionado.
-    :type profile_id: int
-    :param url: La URL a verificar.
-    :type url: str
-    :return: Un diccionario con "is_blocked" (bool) y "reason" (Optional[str]).
-             "reason" detalla la regla que causó el bloqueo.
-    :rtype: Dict[str, Any]
-    """
-    active_rules = await crud_blocking_rule.get_active_blocking_rules_for_profile(
-        session=session, managed_profile_id=profile_id
-    )
-
-    if not active_rules:
-        return {"is_blocked": False, "reason": None}
-
-    url_to_check_lower = url.lower()
-    url_domain = get_domain_from_url(url)
-    url_domain_lower = url_domain.lower() if url_domain else None
-
-    for rule in active_rules:
-        if not rule.is_active:
-            continue
-
-        rule_value_lower = rule.rule_value.lower()
-        rule_matched = False
-        reason_template = f"Bloqueado por regla de usuario: {rule.rule_type.value} - '{rule.rule_value}'"
-
-        if rule.rule_type == RuleType.DOMINIO:
-            if url_domain_lower and url_domain_lower == rule_value_lower:
-                rule_matched = True
-        elif rule.rule_type == RuleType.URL_EXACTA:
-            if url_to_check_lower == rule_value_lower:
-                rule_matched = True
-        elif rule.rule_type == RuleType.PALABRA_CLAVE_URL:
-            if rule_value_lower in url_to_check_lower:
-                rule_matched = True
-        
-        if rule_matched:
-            return {
-                "is_blocked": True,
-                "reason": reason_template
-            }
+    async def create_rule(
+        self, 
+        rule_data: BlockingRuleCreate, 
+        profile_id: str, 
+        current_user: User
+    ) -> BlockingRuleRead:
+        """Crea una nueva regla de bloqueo."""
+        try:
+            rule = await blocking_rule_crud.create(rule_data, profile_id, current_user)
             
-    return {"is_blocked": False, "reason": None}
+            return BlockingRuleRead(
+                id=str(rule.id),
+                rule_type=rule.rule_type,
+                rule_value=rule.rule_value,
+                active=rule.active,
+                description=rule.description,
+                created_at=rule.created_at
+            )
+        except ValueError as e:
+            raise ValueError(str(e))
+        except Exception as e:
+            raise Exception(f"Error al crear la regla: {str(e)}")
+    
+    async def get_profile_rules(self, profile_id: str, current_user: User) -> List[BlockingRuleRead]:
+        """Obtiene todas las reglas de un perfil específico."""
+        try:
+            profile_object_id = PydanticObjectId(profile_id)
+            
+            # Verificar que el perfil pertenece al usuario
+            from app.crud.crud_managed_profile import managed_profile_crud
+            if not await managed_profile_crud.check_ownership(profile_object_id, current_user.id):
+                raise ValueError("Perfil no encontrado o no tienes permisos para ver sus reglas")
+            
+            rules = await blocking_rule_crud.get_by_profile(profile_object_id)
+            
+            return [
+                BlockingRuleRead(
+                    id=str(rule.id),
+                    rule_type=rule.rule_type,
+                    rule_value=rule.rule_value,
+                    active=rule.active,
+                    description=rule.description,
+                    created_at=rule.created_at
+                )
+                for rule in rules
+            ]
+        except ValueError as e:
+            raise ValueError(str(e))
+        except Exception as e:
+            raise Exception(f"Error al obtener las reglas: {str(e)}")
+    
+    async def update_rule(
+        self, 
+        rule_id: str, 
+        update_data: BlockingRuleUpdate, 
+        current_user: User
+    ) -> BlockingRuleRead:
+        """Actualiza una regla de bloqueo."""
+        try:
+            rule_object_id = PydanticObjectId(rule_id)
+            
+            # Filtrar solo los campos que no son None
+            update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+            
+            if not update_dict:
+                raise ValueError("No se proporcionaron datos para actualizar")
+            
+            rule = await blocking_rule_crud.update_by_id_and_user(
+                rule_object_id, 
+                current_user.id, 
+                update_dict
+            )
+            
+            if not rule:
+                raise ValueError("Regla no encontrada o no tienes permisos para modificarla")
+            
+            return BlockingRuleRead(
+                id=str(rule.id),
+                rule_type=rule.rule_type,
+                rule_value=rule.rule_value,
+                active=rule.active,
+                description=rule.description,
+                created_at=rule.created_at
+            )
+        except ValueError as e:
+            raise ValueError(str(e))
+        except Exception as e:
+            raise Exception(f"Error al actualizar la regla: {str(e)}")
+    
+    async def delete_rule(self, rule_id: str, current_user: User) -> bool:
+        """Elimina una regla de bloqueo."""
+        try:
+            rule_object_id = PydanticObjectId(rule_id)
+            
+            deleted = await blocking_rule_crud.delete_by_id_and_user(rule_object_id, current_user.id)
+            
+            if not deleted:
+                raise ValueError("Regla no encontrada o no tienes permisos para eliminarla")
+            
+            return True
+        except ValueError as e:
+            raise ValueError(str(e))
+        except Exception as e:
+            raise Exception(f"Error al eliminar la regla: {str(e)}")
+
+blocking_rule_service = BlockingRuleService()
