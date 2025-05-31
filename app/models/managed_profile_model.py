@@ -1,58 +1,76 @@
-from typing import List, Optional
-from sqlmodel import Field, Relationship, SQLModel
+from typing import Optional, List, TYPE_CHECKING
+from beanie import Document, Indexed, Link
+from pydantic import BaseModel, Field
 from datetime import datetime
+import uuid
+import secrets
+import re
 
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .user_model import User, UserRead
-    from .blocking_rule_model import BlockingRule, BlockingRuleRead
-    from .navigation_history_model import NavigationHistory, NavigationHistoryRead
+# Importación directa en lugar de TYPE_CHECKING
+from app.models.user_model import User
 
-class ManagedProfileBase(SQLModel):
-    profile_name: str = Field(max_length=100, nullable=False)
-    link_status: str = Field(default='waiting_for_link', max_length=50, nullable=False)
-    last_extension_communication: Optional[datetime] = Field(default=None, nullable=True)
-
-
-class ManagedProfile(ManagedProfileBase, table=True):
-    __tablename__ = "managed_profiles"
-
-    id: Optional[int] = Field(default=None, primary_key=True, index=True)
-    manager_user_id: int = Field(foreign_key="users.id", nullable=False, index=True)
+class ManagedProfile(Document):
+    """Modelo de perfil gestionado por un usuario."""
+    name: str
+    token: Indexed(str, unique=True)
+    manager_user: Link[User]
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    link_code: Optional[str] = Field(default=None, max_length=50, unique=True, index=True, nullable=True)
-    extension_instance_id: Optional[str] = Field(default=None, max_length=36, unique=True, index=True, nullable=True)
+    class Settings:
+        collection = "managed_profiles"
+        indexes = [
+            [("token", 1)],
+            [("manager_user", 1)],
+            [("name", 1), ("manager_user", 1)] 
+        ]
     
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-
-    manager_user: Optional["User"] = Relationship(back_populates="managed_profiles")
+    @staticmethod
+    def slugify(text: str) -> str:
+        """Convierte un texto a formato slug (URL-friendly)."""
+        text = re.sub(r'[^\w\s-]', '', text.lower())
+        text = re.sub(r'[-\s]+', '-', text)
+        return text.strip('-')
     
-    blocking_rules: List["BlockingRule"] = Relationship(back_populates="managed_profile")
-    navigation_history: List["NavigationHistory"] = Relationship(back_populates="managed_profile")
+    @staticmethod
+    def generate_token(username: str, profile_name: str) -> str:
+        """Genera un token único para el perfil."""
+        slugified_name = ManagedProfile.slugify(profile_name)
+        random_suffix = secrets.token_urlsafe(6)[:6]
+        return f"{username}_{slugified_name}_{random_suffix}"
 
+class ManagedProfileBase(BaseModel):
+    """Esquema base para perfil gestionado."""
+    name: str
 
 class ManagedProfileCreate(ManagedProfileBase):
-    pass
-
+    """Esquema para crear un nuevo perfil gestionado."""
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "Perfil Administrado X",
+            }
+        }
 
 class ManagedProfileRead(ManagedProfileBase):
-    id: int
-    manager_user_id: int
+    """Esquema para leer datos de un perfil gestionado."""
+    id: str = Field(alias="_id")
+    token: str
     created_at: datetime
-    link_code: Optional[str] = None
-    extension_instance_id: Optional[str] = None
-    blocking_rules_count: int
+    
+    class Config:
+        populate_by_name = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat()
+        }
 
+# Solo definir si realmente necesitas este esquema
+if TYPE_CHECKING:
+    from app.models.user_model import UserRead
 
-class ManagedProfileReadWithDetails(ManagedProfileRead):
-    manager_user: Optional["UserRead"] = None
-    blocking_rules: List["BlockingRuleRead"] = []
+class ManagedProfileReadWithManager(ManagedProfileRead):
+    """Esquema para leer perfil con información del manager."""
+    manager_user: "UserRead"
 
-
-class ManagedProfileUpdate(SQLModel):
-    profile_name: Optional[str] = Field(default=None, max_length=100)
-
-
-class LinkExtensionRequest(SQLModel):
-    link_code: str
-    extension_instance_id: str
+class ManagedProfileUpdate(BaseModel):
+   pass
