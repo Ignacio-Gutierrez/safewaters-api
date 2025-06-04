@@ -1,124 +1,112 @@
-"""
-Módulo de servicios para gestionar el historial de navegación.
-
-Este módulo proporciona funciones para registrar visitas de navegación y
-recuperar el historial de navegación de un perfil específico, asegurando
-las comprobaciones de autorización necesarias.
-"""
-from typing import List, Optional
-from sqlmodel import Session
-from fastapi import HTTPException, status
-
-from app.crud import crud_navigation_history as crud_nav_history
-from app.crud import crud_managed_profile
-from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate, NavigationHistoryRead
+import math
+from typing import List
+from beanie import PydanticObjectId
+from app.crud.crud_navigation_history import navigation_history_crud
+from app.models.navigation_history_model import NavigationHistory, NavigationHistoryResponse
+from app.models.pagination_model import PaginatedResponse
 from app.models.user_model import User
-from app.models.pagination_model import PaginatedResponse 
 
-async def record_navigation_visit(
-    session: Session,
-    profile_id: int,
-    url: str,
-) -> NavigationHistory:
-    """
-    Registra una visita de navegación para un perfil.
-
-    Este servicio crea una nueva entrada en el historial de navegación
-    asociada con el `profile_id` proporcionado.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param profile_id: El ID del perfil para el cual se registra la visita.
-    :type profile_id: int
-    :param url: La URL visitada.
-    :type url: str
-    :return: El objeto de historial de navegación creado.
-    :rtype: app.models.navigation_history_model.NavigationHistory
-    """
-    history_create = NavigationHistoryCreate(
-        visited_url=url,
-    )
+class NavigationHistoryService:
+    """Servicio para gestionar historial de navegación."""
     
-    return await crud_nav_history.create_navigation_history_entry(
-        session=session,
-        history_entry=history_create,
-        profile_id=profile_id
-    )
-
-async def get_profile_navigation_history(
-    session: Session,
-    profile_id: int,
-    current_user: User,
-    page: int,
-    page_size: int
-) -> PaginatedResponse[NavigationHistoryRead]:
-    """
-    Obtiene el historial de navegación paginado para un perfil específico.
-
-    Verifica que el `current_user` sea el propietario del perfil antes de
-    devolver el historial.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param profile_id: El ID del perfil cuyo historial se va a recuperar.
-    :type profile_id: int
-    :param current_user: El usuario autenticado que realiza la solicitud.
-    :type current_user: app.models.user_model.User
-    :param page: Número de página a recuperar.
-    :type page: int
-    :param page_size: Número de elementos por página.
-    :type page_size: int
-    :return: Un objeto PaginatedResponse con el historial de navegación.
-    :rtype: app.models.pagination_model.PaginatedResponse[app.models.navigation_history_model.NavigationHistoryRead]
-    :raises HTTPException: Si el perfil no se encuentra (404), si el usuario
-                           no está autorizado (403), o si la página solicitada está fuera de rango (404).
-    """
-    profile = crud_managed_profile.get_managed_profile_by_id(session=session, profile_id=profile_id)
-    if not profile:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Perfil no encontrado")
-        
-    if profile.manager_user_id != current_user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado para acceder a este historial")
-
-    skip = (page - 1) * page_size
-    limit = page_size
-
-    history_db_items = await crud_nav_history.get_navigation_history_for_profile(
-        session=session, profile_id=profile_id, skip=skip, limit=limit
-    )
+    async def get_profile_history_for_frontend(
+        self, 
+        profile_id: str, 
+        current_user: User,
+        page: int = 1,
+        page_size: int = 10,
+        blocked_only: bool = False
+    ) -> PaginatedResponse[NavigationHistoryResponse]:
+        """
+        Obtiene el historial de navegación en el formato esperado por el frontend.
+        Solo permite acceso si el usuario es manager del perfil.
+        """
+        try:
+            profile_object_id = PydanticObjectId(profile_id)
+            
+            from app.crud.crud_managed_profile import managed_profile_crud
+            if not await managed_profile_crud.check_ownership(profile_object_id, current_user.id):
+                raise ValueError("Perfil no encontrado o no tienes permisos para ver su historial")
+            
+            if blocked_only:
+                records, total_count = await navigation_history_crud.get_blocked_history_paginated(
+                    profile_object_id, page, page_size
+                )
+            else:
+                records, total_count = await navigation_history_crud.get_profile_history_paginated(
+                    profile_object_id, page, page_size
+                )
+            
+            items = []
+            for record in records:
+                profile_ref_id = None
+                try:
+                    if record.profile:
+                        profile_ref_id = str(record.profile.to_ref().id)
+                except Exception:
+                    profile_ref_id = str(profile_object_id)
+                
+                blocking_rule_id = None
+                try:
+                    if record.blocking_rule:
+                        blocking_rule_id = str(record.blocking_rule.to_ref().id)
+                except Exception:
+                    blocking_rule_id = None
+                
+                response_item = NavigationHistoryResponse(
+                    id=str(record.id),
+                    visited_url=record.visited_url,
+                    blocked=record.blocked,
+                    manaded_profile_id=profile_ref_id or str(profile_object_id),
+                    visited_at=record.visited_at.isoformat(),
+                    blocking_rule_id=blocking_rule_id
+                )
+                
+                items.append(response_item)
+            
+            total_pages = math.ceil(total_count / page_size) if total_count > 0 else 0
+            
+            return PaginatedResponse[NavigationHistoryResponse](
+                total_items=total_count,
+                total_pages=total_pages,
+                current_page=page,
+                page_size=page_size,
+                items=items
+            )
+        except ValueError as e:
+            raise ValueError(str(e))
+        except Exception as e:
+            raise Exception(f"Error al obtener el historial: {str(e)}")
     
-    total_items = await crud_nav_history.count_navigation_history_for_profile(
-        session=session, profile_id=profile_id
-    )
+    async def record_navigation(
+        self, 
+        profile_id: str, 
+        visited_url: str, 
+        current_user: User
+    ) -> dict:
+        """
+        Registra una navegación para un perfil específico.
+        Retorna información sobre si fue bloqueada o no.
+        """
+        try:
+            navigation = await navigation_history_crud.create_from_profile_id(
+                profile_id, 
+                visited_url, 
+                current_user.id
+            )
+            
+            return {
+                "success": True,
+                "blocked": navigation.blocked,
+                "visited_url": navigation.visited_url,
+                "visited_at": navigation.visited_at.isoformat(),
+                "navigation_id": str(navigation.id),
+                "message": "URL bloqueada por reglas de filtrado" if navigation.blocked else "Navegación registrada"
+            }
+            
+        except ValueError as e:
+            raise ValueError(str(e))
+        except Exception as e:
+            raise Exception(f"Error al registrar la navegación: {str(e)}")
 
-    total_pages = 0
-    if page_size > 0:
-        total_pages = (total_items + page_size - 1) // page_size
-    elif total_items > 0 :
-        total_pages = 1 
-    
-    if total_items == 0:
-        total_pages = 0
-    elif total_pages == 0 and total_items > 0:
-        total_pages = 1
-
-
-    if total_items == 0 and page != 1:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Página {page} no encontrada. No hay historial de navegación."
-        )
-    
-    if total_items > 0 and page > total_pages:
-         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Página {page} no encontrada. Hay {total_pages} páginas en total."
-        )
-
-    return PaginatedResponse[NavigationHistoryRead](
-        total_items=total_items,
-        total_pages=total_pages if total_items > 0 else 0,
-        current_page=page,
-        page_size=page_size,
-        items=[NavigationHistoryRead.model_validate(entry) for entry in history_db_items]
-    )
+navigation_history_service = NavigationHistoryService()
