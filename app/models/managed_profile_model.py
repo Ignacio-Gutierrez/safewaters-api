@@ -67,5 +67,13 @@ class ManagedProfileReadWithManager(ManagedProfileRead):
     """Esquema para leer perfil con información del manager."""
     manager_user: "UserRead"
 
+class ManagedProfileReadWithStats(ManagedProfileRead):
+    """Esquema para leer perfil con estadísticas adicionales."""
+    manager_user_id: str
+    blocking_rules_count: int = 0
+    
+    class Config:
+        populate_by_name = True
+
 class ManagedProfileUpdate(BaseModel):
     pass

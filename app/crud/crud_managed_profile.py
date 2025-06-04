@@ -41,6 +41,56 @@ class CRUDManagedProfile:
         """Obtiene todos los perfiles de un usuario."""
         return await ManagedProfile.find(ManagedProfile.manager_user.id == user_id).to_list()
     
+    async def get_by_user_with_stats(self, user_id: PydanticObjectId) -> List[dict]:
+        """Obtiene todos los perfiles de un usuario con estadísticas."""
+        try:
+            profiles = await self.get_by_user(user_id)
+            
+            result = []
+            for profile in profiles:
+                try:
+                    from app.models.blocking_rule_model import BlockingRule
+                    rules_count = await BlockingRule.find(BlockingRule.profile.id == profile.id).count()
+                    
+                    manager_user_id = None
+                    if profile.manager_user:
+                        manager_user_id = profile.manager_user.to_ref().id
+                    
+                    profile_dict = {
+                        "_id": profile.id,
+                        "name": profile.name,
+                        "token": profile.token,
+                        "manager_user": {"$id": manager_user_id} if manager_user_id else None,
+                        "created_at": profile.created_at,
+                        "blocking_rules_count": rules_count
+                    }
+                    result.append(profile_dict)
+                    
+                except Exception as e:
+                    manager_user_id = None
+                    try:
+                        if profile.manager_user:
+                            manager_user_id = profile.manager_user.to_ref().id
+                    except:
+                        pass
+                        
+                    profile_dict = {
+                        "_id": profile.id,
+                        "name": profile.name,
+                        "token": profile.token,
+                        "manager_user": {"$id": manager_user_id} if manager_user_id else None,
+                        "created_at": profile.created_at,
+                        "blocking_rules_count": 0
+                    }
+                    result.append(profile_dict)
+            
+            result.sort(key=lambda x: x["created_at"], reverse=True)
+            return result
+            
+        except Exception as e:
+            print(f"Error in get_by_user_with_stats: {e}")
+            raise e
+    
     async def get_by_id(self, profile_id: PydanticObjectId) -> Optional[ManagedProfile]:
         """Busca un perfil por ID."""
         return await ManagedProfile.get(profile_id)
