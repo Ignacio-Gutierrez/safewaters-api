@@ -27,13 +27,8 @@ Configurada con un título, descripción y versión para la documentación autom
 
 @app.on_event("startup")
 async def startup_event():
-    """
-    Función de evento que se ejecuta al iniciar la aplicación FastAPI.
-
-    Se encarga de inicializar la conexión a MongoDB y configurar Beanie ODM.
-    """
+    """Inicializa la base de datos al arrancar la aplicación."""
     await init_database()
-    print("Base de datos MongoDB inicializada correctamente.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
