@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Path
 from typing import List
 from app.api.services.managed_profile_service import managed_profile_service
-from app.models.managed_profile_model import ManagedProfileCreate, ManagedProfileRead
+from app.models.managed_profile_model import ManagedProfileCreate, ManagedProfileRead, ManagedProfileReadWithStats
 from app.models.user_model import User
 from app.core.security import get_current_user
 
@@ -30,10 +30,10 @@ async def create_managed_profile(
             detail="Error interno del servidor"
         )
 
-@router.get("/", response_model=List[ManagedProfileRead])
+@router.get("/", response_model=List[ManagedProfileReadWithStats])
 async def get_my_profiles(
     current_user: User = Depends(get_current_user)
-) -> List[ManagedProfileRead]:
+) -> List[ManagedProfileReadWithStats]:
     """
     Obtiene todos los perfiles gestionados del usuario actual.
     """

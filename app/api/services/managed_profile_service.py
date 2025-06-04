@@ -1,7 +1,7 @@
 from typing import List
 from beanie import PydanticObjectId
 from app.crud.crud_managed_profile import managed_profile_crud
-from app.models.managed_profile_model import ManagedProfile, ManagedProfileCreate, ManagedProfileRead
+from app.models.managed_profile_model import ManagedProfile, ManagedProfileCreate, ManagedProfileRead, ManagedProfileReadWithStats
 from app.models.user_model import User
 
 class ManagedProfileService:
@@ -10,10 +10,8 @@ class ManagedProfileService:
     async def create_profile(self, profile_data: ManagedProfileCreate, current_user: User) -> ManagedProfileRead:
         """Crea un nuevo perfil gestionado."""
         try:
-            # Crear el perfil
             profile = await managed_profile_crud.create(profile_data, current_user)
             
-            # Convertir a schema de respuesta
             return ManagedProfileRead(
                 id=str(profile.id),
                 name=profile.name,
@@ -25,18 +23,25 @@ class ManagedProfileService:
         except Exception as e:
             raise Exception(f"Error al crear el perfil: {str(e)}")
     
-    async def get_user_profiles(self, current_user: User) -> List[ManagedProfileRead]:
-        """Obtiene todos los perfiles de un usuario."""
-        profiles = await managed_profile_crud.get_by_user(current_user.id)
-        return [
-            ManagedProfileRead(
-                id=str(profile.id),
-                name=profile.name,
-                token=profile.token,
-                created_at=profile.created_at
-            )
-            for profile in profiles
-        ]
+    async def get_user_profiles(self, current_user: User) -> List[ManagedProfileReadWithStats]:
+        """Obtiene todos los perfiles de un usuario con estadísticas."""
+        try:
+            profiles_data = await managed_profile_crud.get_by_user_with_stats(current_user.id)
+            
+            return [
+                ManagedProfileReadWithStats(
+                    id=str(profile["_id"]),
+                    name=profile["name"],
+                    token=profile["token"],
+                    created_at=profile["created_at"],
+                    manager_user_id=str(profile["manager_user"]["$id"]) if isinstance(profile["manager_user"], dict) else str(profile["manager_user"]),
+                    blocking_rules_count=profile.get("blocking_rules_count", 0)
+                )
+                for profile in profiles_data
+            ]
+            
+        except Exception as e:
+            raise Exception(f"Error al obtener los perfiles: {str(e)}")
     
     async def delete_profile(self, profile_id: str, current_user: User) -> bool:
         """
