@@ -1,115 +1,154 @@
-from typing import List, Optional
-from sqlmodel import Session, select, func
-from datetime import datetime
-
+from typing import List, Optional, Tuple
+from beanie import PydanticObjectId
 from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate
+from app.models.managed_profile_model import ManagedProfile
 
-async def create_navigation_history_entry(
-    session: Session,
-    history_entry: NavigationHistoryCreate,
-    profile_id: int
-) -> NavigationHistory:
-    """
-    Crea una nueva entrada en el historial de navegación para un perfil gestionado.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param history_entry: Los datos para la nueva entrada de historial.
-                          Se espera un objeto compatible con NavigationHistoryCreate.
-    :type history_entry: app.models.navigation_history_model.NavigationHistoryCreate
-    :param profile_id: El ID del perfil gestionado al que pertenece esta entrada.
-    :type profile_id: int
-    :return: La entrada de historial de navegación creada y persistida en la base de datos.
-    :rtype: app.models.navigation_history_model.NavigationHistory
-    """
-    db_history = NavigationHistory.model_validate(
-        history_entry,
-        update={
-            "managed_profile_id": profile_id,
-            "visited_date": datetime.utcnow()
-        }
-    )
-    session.add(db_history)
-    session.commit()
-    session.refresh(db_history)
-    return db_history
-
-async def count_navigation_history_for_profile(
-    session: Session,
-    profile_id: int
-) -> int:
-    """
-    Cuenta el número total de entradas de historial de navegación para un perfil gestionado.
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param profile_id: El ID del perfil gestionado.
-    :type profile_id: int
-    :return: El número total de entradas de historial.
-    :rtype: int
-    """
-    statement = (
-        select(func.count())
-        .select_from(NavigationHistory)
-        .where(NavigationHistory.managed_profile_id == profile_id)
-    )
-    count_value = session.scalar(statement)
+class CRUDNavigationHistory:
+    """CRUD operations para NavigationHistory."""
     
-    return count_value if count_value is not None else 0
+    async def create(self, navigation_data: NavigationHistoryCreate, profile: ManagedProfile) -> NavigationHistory:
+        """Crea un nuevo registro de navegación."""
+        navigation = NavigationHistory(
+            profile=profile,
+            visited_url=navigation_data.visited_url,
+            blocked=navigation_data.blocked
+        )
+        
+        await navigation.create()
+        return navigation
+    
+    async def get_profile_history_paginated(
+        self, 
+        profile_id: PydanticObjectId, 
+        page: int = 1, 
+        page_size: int = 10
+    ) -> Tuple[List[NavigationHistory], int]:
+        """
+        Obtiene el historial paginado de un perfil.
+        Retorna (lista_registros, total_count).
+        """
+        skip = (page - 1) * page_size
+        
+        records = await NavigationHistory.find(
+            NavigationHistory.profile.id == profile_id
+        ).sort([("visited_at", -1)]).skip(skip).limit(page_size).to_list()
+        
+        total_count = await NavigationHistory.find(
+            NavigationHistory.profile.id == profile_id
+        ).count()
+        
+        return records, total_count
+    
+    async def get_blocked_history_paginated(
+        self, 
+        profile_id: PydanticObjectId, 
+        page: int = 1, 
+        page_size: int = 10
+    ) -> Tuple[List[NavigationHistory], int]:
+        """
+        Obtiene solo el historial bloqueado paginado de un perfil.
+        Retorna (lista_registros, total_count).
+        """
+        skip = (page - 1) * page_size
+        
+        records = await NavigationHistory.find(
+            NavigationHistory.profile.id == profile_id,
+            NavigationHistory.blocked == True
+        ).sort([("visited_at", -1)]).skip(skip).limit(page_size).to_list()
+        
+        total_count = await NavigationHistory.find(
+            NavigationHistory.profile.id == profile_id,
+            NavigationHistory.blocked == True
+        ).count()
+        
+        return records, total_count
+    
+    async def get_by_profile(self, profile_id: PydanticObjectId) -> List[NavigationHistory]:
+        """Obtiene todo el historial de un perfil (sin paginación)."""
+        return await NavigationHistory.find(
+            NavigationHistory.profile.id == profile_id
+        ).sort([("visited_at", -1)]).to_list()
+    
+    async def get_by_id(self, navigation_id: PydanticObjectId) -> Optional[NavigationHistory]:
+        """Busca un registro de navegación por ID."""
+        return await NavigationHistory.get(navigation_id)
+    
+    async def delete_by_profile(self, profile_id: PydanticObjectId) -> bool:
+        """Elimina todo el historial de un perfil."""
+        result = await NavigationHistory.find(
+            NavigationHistory.profile.id == profile_id
+        ).delete()
+        
+        return result.deleted_count > 0
 
-async def count_navigation_history_by_blocking_rule_id(
-    session: Session,
-    blocking_rule_id: int
-) -> int:
-    """
-    Cuenta el número de entradas de historial de navegación asociadas a un ID de regla de bloqueo.
+    async def create_from_profile_id(
+        self, 
+        profile_id: str, 
+        visited_url: str, 
+        user_id: PydanticObjectId
+    ) -> NavigationHistory:
+        """
+        Crea un registro de navegación usando el ID del perfil.
+        Verifica que el perfil pertenezca al usuario.
+        """
+        from app.crud.crud_managed_profile import managed_profile_crud
+        from app.models.blocking_rule_model import BlockingRule
+        from urllib.parse import urlparse
+        
+        # Verificar que el perfil pertenece al usuario
+        profile_object_id = PydanticObjectId(profile_id)
+        if not await managed_profile_crud.check_ownership(profile_object_id, user_id):
+            raise ValueError("Perfil no encontrado o no tienes permisos para registrar navegación")
+        
+        # Obtener el perfil
+        profile = await managed_profile_crud.get_by_id(profile_object_id)
+        if not profile:
+            raise ValueError("Perfil no encontrado")
+        
+        # Verificar si la URL debe ser bloqueada
+        blocked = False
+        blocking_rule = None
+        
+        try:
+            # Buscar reglas de bloqueo para este perfil
+            rules = await BlockingRule.find(
+                BlockingRule.profile.id == profile_object_id,
+                BlockingRule.active == True
+            ).to_list()
+            
+            parsed_url = urlparse(visited_url)
+            domain = parsed_url.netloc.lower()
+            
+            for rule in rules:
+                rule_value = rule.rule_value.lower()
+                
+                if rule.rule_type == "DOMAIN" and domain == rule_value:
+                    blocked = True
+                    blocking_rule = rule
+                    break
+                elif rule.rule_type == "URL" and visited_url.lower() == rule_value:
+                    blocked = True
+                    blocking_rule = rule
+                    break
+                elif rule.rule_type == "KEYWORD" and rule_value in visited_url.lower():
+                    blocked = True
+                    blocking_rule = rule
+                    break
+                    
+        except Exception as e:
+            print(f"Error checking blocking rules: {e}")
+            # Si falla la verificación, permitir la navegación
+            pass
+        
+        # Crear el registro de navegación
+        navigation = NavigationHistory(
+            profile=profile,
+            visited_url=visited_url,
+            blocked=blocked,
+            blocking_rule=blocking_rule if blocked else None
+        )
+        
+        await navigation.create()
+        return navigation
 
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param blocking_rule_id: El ID de la regla de bloqueo.
-    :type blocking_rule_id: int
-    :return: El número de entradas de historial asociadas.
-    :rtype: int
-    """
-    statement = (
-        select(func.count())
-        .select_from(NavigationHistory)
-        .where(NavigationHistory.blocking_rule_id == blocking_rule_id)
-    )
-    count_value = session.scalar(statement)
-    return count_value if count_value is not None else 0
-
-async def get_navigation_history_for_profile(
-    session: Session,
-    profile_id: int,
-    skip: int = 0,
-    limit: int = 100
-) -> List[NavigationHistory]:
-    """
-    Obtiene el historial de navegación para un perfil gestionado específico, con paginación.
-
-    Las entradas se devuelven ordenadas por fecha de visita descendente (la más reciente primero).
-
-    :param session: La sesión de base de datos.
-    :type session: sqlmodel.Session
-    :param profile_id: El ID del perfil gestionado.
-    :type profile_id: int
-    :param skip: Número de registros a saltar (para paginación).
-    :type skip: int
-    :param limit: Número máximo de registros a devolver (para paginación).
-    :type limit: int
-    :return: Una lista de entradas de historial de navegación para el perfil especificado.
-             La lista puede estar vacía si no hay entradas o si los parámetros de paginación
-             exceden el número de registros.
-    :rtype: List[app.models.navigation_history_model.NavigationHistory]
-    """
-    statement = (
-        select(NavigationHistory)
-        .where(NavigationHistory.managed_profile_id == profile_id)
-        .order_by(NavigationHistory.visited_date.desc())
-        .offset(skip)
-        .limit(limit)
-    )
-    results = session.exec(statement)
-    history_entries = results.all()
-    return list(history_entries)
+navigation_history_crud = CRUDNavigationHistory()
