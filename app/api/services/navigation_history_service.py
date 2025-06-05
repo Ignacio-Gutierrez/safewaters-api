@@ -1,8 +1,7 @@
 import math
-from typing import List
 from beanie import PydanticObjectId
 from app.crud.crud_navigation_history import navigation_history_crud
-from app.models.navigation_history_model import NavigationHistory, NavigationHistoryResponse
+from app.models.navigation_history_model import NavigationHistoryResponse
 from app.models.pagination_model import PaginatedResponse
 from app.models.user_model import User
 
@@ -78,21 +77,25 @@ class NavigationHistoryService:
         except Exception as e:
             raise Exception(f"Error al obtener el historial: {str(e)}")
     
-    async def record_navigation(
+    async def record_navigation_by_token(
         self, 
-        profile_id: str, 
-        visited_url: str, 
-        current_user: User
+        profile_token: str, 
+        visited_url: str
     ) -> dict:
         """
-        Registra una navegación para un perfil específico.
-        Retorna información sobre si fue bloqueada o no.
+        Registra navegación usando el token del perfil.
+        Especialmente diseñado para la extensión del navegador.
         """
         try:
-            navigation = await navigation_history_crud.create_from_profile_id(
-                profile_id, 
-                visited_url, 
-                current_user.id
+            from app.crud.crud_managed_profile import managed_profile_crud
+            
+            profile = await managed_profile_crud.get_by_token(profile_token)
+            if not profile:
+                raise ValueError("Token de perfil no válido")
+            
+            navigation = await navigation_history_crud.create_from_profile_id_without_user_check(
+                str(profile.id), 
+                visited_url
             )
             
             return {
@@ -107,6 +110,6 @@ class NavigationHistoryService:
         except ValueError as e:
             raise ValueError(str(e))
         except Exception as e:
-            raise Exception(f"Error al registrar la navegación: {str(e)}")
+            raise Exception(f"Error al registrar la navegación por token: {str(e)}")
 
 navigation_history_service = NavigationHistoryService()

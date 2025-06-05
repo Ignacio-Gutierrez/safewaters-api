@@ -1,13 +1,9 @@
 import logging
 import traceback
 from fastapi import APIRouter, HTTPException, Depends, status, Path, Query
-from typing import List, Optional
 from app.api.services.navigation_history_service import navigation_history_service
 from app.models.navigation_history_model import (
     NavigationRecordRequest,
-    NavigationRecordByIdRequest,  # Agregar esta importación
-    NavigationHistoryRead,
-    NavigationHistoryReadWithDetails,
     NavigationHistoryResponse
 )
 from app.models.pagination_model import PaginatedResponse
@@ -50,25 +46,22 @@ async def get_profile_history(
             detail="Error al obtener el historial"
         )
 
-@router.post("/record", status_code=status.HTTP_201_CREATED)
-async def record_navigation(
-    request: NavigationRecordByIdRequest,
-    current_user: User = Depends(get_current_user)
+@router.post("/record-by-token", status_code=status.HTTP_201_CREATED)
+async def record_navigation_by_token(
+    request: NavigationRecordRequest
 ):
     """
-    Registra una nueva navegación para un perfil específico.
+    Registra una nueva navegación usando el token del perfil.
     
-    Verifica automáticamente las reglas de bloqueo y registra si la URL fue bloqueada.
-    Solo se puede registrar navegación en perfiles que el usuario gestiona.
+    Especialmente diseñado para ser usado por la extensión del navegador.
     
-    - **profile_id**: ID del perfil para el cual registrar la navegación
+    - **profile_token**: Token del perfil
     - **visited_url**: URL visitada
     """
     try:
-        result = await navigation_history_service.record_navigation(
-            request.profile_id,
-            request.visited_url,
-            current_user
+        result = await navigation_history_service.record_navigation_by_token(
+            request.profile_token,
+            request.visited_url
         )
         
         return result
@@ -79,7 +72,7 @@ async def record_navigation(
             detail=str(e)
         )
     except Exception as e:
-        logging.error(f"Error recording navigation: {e}")
+        logging.error(f"Error recording navigation by token: {e}")
         logging.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
