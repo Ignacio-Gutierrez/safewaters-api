@@ -40,7 +40,8 @@ class CRUDBlockingRule:
             rule_type=rule_data.rule_type,
             rule_value=rule_data.rule_value,
             active=rule_data.active,
-            description=rule_data.description
+            description=rule_data.description,
+            name=rule_data.name
         )
         
         await rule.create()
