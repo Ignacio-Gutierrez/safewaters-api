@@ -46,11 +46,18 @@ class NavigationHistoryService:
                     profile_ref_id = str(profile_object_id)
                 
                 blocking_rule_id = None
+                blocking_rule_name = None
+                blocking_rule_description = None
+                
                 try:
-                    if record.blocking_rule:
-                        blocking_rule_id = str(record.blocking_rule.to_ref().id)
+                    if record.blocking_rule_snapshot:
+                        blocking_rule_id = record.blocking_rule_snapshot.id
+                        blocking_rule_name = record.blocking_rule_snapshot.name
+                        blocking_rule_description = record.blocking_rule_snapshot.description
                 except Exception:
                     blocking_rule_id = None
+                    blocking_rule_name = None
+                    blocking_rule_description = None
                 
                 response_item = NavigationHistoryResponse(
                     id=str(record.id),
@@ -58,7 +65,9 @@ class NavigationHistoryService:
                     blocked=record.blocked,
                     manaded_profile_id=profile_ref_id or str(profile_object_id),
                     visited_at=record.visited_at.isoformat(),
-                    blocking_rule_id=blocking_rule_id
+                    blocking_rule_id=blocking_rule_id,
+                    blocking_rule_name=blocking_rule_name,
+                    blocking_rule_description=blocking_rule_description
                 )
                 
                 items.append(response_item)

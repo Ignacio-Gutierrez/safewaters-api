@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 from beanie import PydanticObjectId
-from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate
+from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate, RuleSnapshot
 from app.models.managed_profile_model import ManagedProfile
 
 class CRUDNavigationHistory:
@@ -81,6 +81,20 @@ class CRUDNavigationHistory:
         
         return result.deleted_count > 0
 
+    def _create_rule_snapshot(self, blocking_rule) -> RuleSnapshot:
+        """
+        Crea un snapshot de una regla de bloqueo.
+        Preserva todos los datos relevantes de la regla en el momento del bloqueo.
+        """
+        return RuleSnapshot(
+            id=str(blocking_rule.id),
+            name=blocking_rule.name,
+            rule_type=blocking_rule.rule_type,
+            rule_value=blocking_rule.rule_value,
+            description=blocking_rule.description,
+            created_at=blocking_rule.created_at
+        )
+
     async def create_from_profile_id_without_user_check(
         self, 
         profile_id: str, 
@@ -100,7 +114,7 @@ class CRUDNavigationHistory:
             raise ValueError("Perfil no encontrado")
         
         blocked = False
-        blocking_rule = None
+        blocking_rule_snapshot = None
         
         try:
             rules = await BlockingRule.find(
@@ -116,15 +130,15 @@ class CRUDNavigationHistory:
                 
                 if rule.rule_type == "DOMAIN" and domain == rule_value:
                     blocked = True
-                    blocking_rule = rule
+                    blocking_rule_snapshot = self._create_rule_snapshot(rule)
                     break
                 elif rule.rule_type == "URL" and visited_url.lower() == rule_value:
                     blocked = True
-                    blocking_rule = rule
+                    blocking_rule_snapshot = self._create_rule_snapshot(rule)
                     break
                 elif rule.rule_type == "KEYWORD" and rule_value in visited_url.lower():
                     blocked = True
-                    blocking_rule = rule
+                    blocking_rule_snapshot = self._create_rule_snapshot(rule)
                     break
                     
         except Exception as e:
@@ -135,7 +149,7 @@ class CRUDNavigationHistory:
             profile=profile,
             visited_url=visited_url,
             blocked=blocked,
-            blocking_rule=blocking_rule if blocked else None
+            blocking_rule_snapshot=blocking_rule_snapshot
         )
         
         await navigation.create()
