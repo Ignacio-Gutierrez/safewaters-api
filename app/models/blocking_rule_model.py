@@ -21,6 +21,7 @@ class BlockingRule(Document):
     debe ser bloqueado para un perfil determinado.
     """
     profile: Link[ManagedProfile]
+    name: Optional[str] = None
     rule_type: RuleType
     rule_value: str
     active: bool = True
@@ -36,6 +37,7 @@ class BlockingRule(Document):
 # Esquemas Pydantic
 class BlockingRuleBase(BaseModel):
     """Esquema base para reglas de bloqueo."""
+    name: Optional[str] = None
     rule_type: RuleType
     rule_value: str
     active: bool = True
@@ -47,6 +49,7 @@ class BlockingRuleCreate(BlockingRuleBase):
     class Config:
         json_schema_extra = {
             "example": {
+                "name": "Bloqueo Redes Sociales",
                 "rule_type": "KEYWORD",
                 "rule_value": "exampl",
                 "active": True,
@@ -68,12 +71,14 @@ class BlockingRuleReadWithProfile(BlockingRuleRead):
 
 class BlockingRuleUpdate(BaseModel):
     """Esquema para actualizar regla de bloqueo."""
+    name: Optional[str] = None
     active: Optional[bool] = None
     description: Optional[str] = None
     
     class Config:
         json_schema_extra = {
             "example": {
+                "name": "Nuevo nombre de regla",
                 "active": False,
                 "description": "Nueva descripción"
             }

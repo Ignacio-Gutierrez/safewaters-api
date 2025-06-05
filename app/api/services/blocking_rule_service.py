@@ -28,6 +28,7 @@ class BlockingRuleService:
                 rule_value=rule.rule_value,
                 active=rule.active,
                 description=rule.description,
+                name=rule.name,
                 created_at=rule.created_at
             )
         except ValueError as e:
@@ -54,6 +55,7 @@ class BlockingRuleService:
                     rule_value=rule.rule_value,
                     active=rule.active,
                     description=rule.description,
+                    name=rule.name,
                     created_at=rule.created_at
                 )
                 for rule in rules
@@ -94,6 +96,7 @@ class BlockingRuleService:
                 rule_value=rule.rule_value,
                 active=rule.active,
                 description=rule.description,
+                name=rule.name,
                 created_at=rule.created_at
             )
         except ValueError as e:
