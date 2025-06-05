@@ -81,36 +81,28 @@ class CRUDNavigationHistory:
         
         return result.deleted_count > 0
 
-    async def create_from_profile_id(
+    async def create_from_profile_id_without_user_check(
         self, 
         profile_id: str, 
-        visited_url: str, 
-        user_id: PydanticObjectId
+        visited_url: str
     ) -> NavigationHistory:
         """
-        Crea un registro de navegación usando el ID del perfil.
-        Verifica que el perfil pertenezca al usuario.
+        Crea un registro de navegación usando el ID del perfil SIN verificar usuario.
+        Usado especialmente para el endpoint /record-by-token desde extensión del navegador.
         """
         from app.crud.crud_managed_profile import managed_profile_crud
         from app.models.blocking_rule_model import BlockingRule
         from urllib.parse import urlparse
         
-        # Verificar que el perfil pertenece al usuario
         profile_object_id = PydanticObjectId(profile_id)
-        if not await managed_profile_crud.check_ownership(profile_object_id, user_id):
-            raise ValueError("Perfil no encontrado o no tienes permisos para registrar navegación")
-        
-        # Obtener el perfil
         profile = await managed_profile_crud.get_by_id(profile_object_id)
         if not profile:
             raise ValueError("Perfil no encontrado")
         
-        # Verificar si la URL debe ser bloqueada
         blocked = False
         blocking_rule = None
         
         try:
-            # Buscar reglas de bloqueo para este perfil
             rules = await BlockingRule.find(
                 BlockingRule.profile.id == profile_object_id,
                 BlockingRule.active == True
@@ -137,10 +129,8 @@ class CRUDNavigationHistory:
                     
         except Exception as e:
             print(f"Error checking blocking rules: {e}")
-            # Si falla la verificación, permitir la navegación
             pass
         
-        # Crear el registro de navegación
         navigation = NavigationHistory(
             profile=profile,
             visited_url=visited_url,
