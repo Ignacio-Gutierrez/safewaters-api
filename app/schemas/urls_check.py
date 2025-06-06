@@ -3,18 +3,18 @@ from typing import Optional
 
 class URLRequest(BaseModel):
     """
-    Modelo para la solicitud de verificación de URL.
+    Modelo para la solicitud de verificación y registro de URL.
 
     Define la estructura esperada para el cuerpo de la solicitud
-    cuando se envía una URL para su análisis.
+    cuando se envía una URL para su análisis y registro desde la extensión.
 
     :ivar url: La URL que se va a verificar. Debe ser una URL HTTP/HTTPS válida.
     :vartype url: pydantic.HttpUrl
-    :ivar profile_id: El ID de instancia de la extensión que realiza la solicitud (opcional).
-    :vartype profile_id: Optional[str]
+    :ivar profile_token: Token del perfil para verificar reglas y registrar navegación.
+    :vartype profile_token: str
     """
     url: HttpUrl
-    profile_id: Optional[str] = None
+    profile_token: str
 
     class Config:
         """
@@ -24,17 +24,18 @@ class URLRequest(BaseModel):
         """
         json_schema_extra = {
             "example": {
-                "url": "https://phishing-site.com",
-                "profile_id": "unique-extension-id-123",
+                "url": "https://example.com",
+                "profile_token": "user12-perfil-administrado-x-a1b2c3d4",
             }
         }
 
 
 class URLResponse(BaseModel):
     """
-    Modelo para la respuesta de la verificación de URL.
+    Modelo para la respuesta de la verificación y registro de URL.
 
-    Define la estructura de la respuesta que se devuelve después de analizar una URL.
+    Define la estructura de la respuesta que se devuelve después de analizar una URL
+    y registrarla en el historial de navegación.
 
     :ivar domain: El dominio extraído de la URL analizada.
     :vartype domain: str
@@ -74,6 +75,6 @@ class URLResponse(BaseModel):
                 "info": "No se detectaron señales de peligro en fuentes consultadas.",
                 "source": "Multi-API",
                 "is_blocked_by_user_rule": True,
-                "blocking_rule_details": "Bloqueado por regla de usuario: DOMAIN - 'example.com'"
+                "blocking_rule_details": "Bloqueado por regla DOMAIN: 'example.com'"
             }
         }
