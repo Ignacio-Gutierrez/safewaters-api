@@ -2,10 +2,7 @@ import logging
 import traceback
 from fastapi import APIRouter, HTTPException, Depends, status, Path, Query
 from app.api.services.navigation_history_service import navigation_history_service
-from app.models.navigation_history_model import (
-    NavigationRecordRequest,
-    NavigationHistoryResponse
-)
+from app.models.navigation_history_model import NavigationHistoryResponse
 from app.models.pagination_model import PaginatedResponse
 from app.models.user_model import User
 from app.core.security import get_current_user
@@ -45,37 +42,3 @@ async def get_profile_history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener el historial"
         )
-
-@router.post("/record-by-token", status_code=status.HTTP_201_CREATED)
-async def record_navigation_by_token(
-    request: NavigationRecordRequest
-):
-    """
-    Registra una nueva navegación usando el token del perfil.
-    
-    Especialmente diseñado para ser usado por la extensión del navegador.
-    
-    - **profile_token**: Token del perfil
-    - **visited_url**: URL visitada
-    """
-    try:
-        result = await navigation_history_service.record_navigation_by_token(
-            request.profile_token,
-            request.visited_url
-        )
-        
-        return result
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        logging.error(f"Error recording navigation by token: {e}")
-        logging.error(traceback.format_exc())
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error al registrar la navegación"
-        )
-
