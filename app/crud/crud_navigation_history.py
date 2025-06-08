@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 from beanie import PydanticObjectId
-from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate, RuleSnapshot
+from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate, RuleSnapshot, ProfileSnapshot, UserSnapshot
 from app.models.managed_profile_model import ManagedProfile
 
 class CRUDNavigationHistory:
@@ -8,8 +8,27 @@ class CRUDNavigationHistory:
     
     async def create(self, navigation_data: NavigationHistoryCreate, profile: ManagedProfile) -> NavigationHistory:
         """Crea un nuevo registro de navegación."""
+        # Obtener datos del usuario para el snapshot
+        await profile.fetch_link(ManagedProfile.manager_user)
+        user = profile.manager_user
+        
+        # Crear snapshots desnormalizados
+        profile_snapshot = ProfileSnapshot(
+            id=str(profile.id),
+            name=profile.name,
+            profile_token=profile.token
+        )
+        
+        user_snapshot = UserSnapshot(
+            id=str(user.id),
+            email=user.email,
+            username=user.username
+        )
+        
         navigation = NavigationHistory(
             profile=profile,
+            profile_snapshot=profile_snapshot,
+            user_snapshot=user_snapshot,
             visited_url=navigation_data.visited_url,
             blocked=navigation_data.blocked
         )
@@ -28,13 +47,14 @@ class CRUDNavigationHistory:
         Retorna (lista_registros, total_count).
         """
         skip = (page - 1) * page_size
+        profile_id_str = str(profile_id)
         
         records = await NavigationHistory.find(
-            NavigationHistory.profile.id == profile_id
+            NavigationHistory.profile_snapshot.id == profile_id_str
         ).sort([("visited_at", -1)]).skip(skip).limit(page_size).to_list()
         
         total_count = await NavigationHistory.find(
-            NavigationHistory.profile.id == profile_id
+            NavigationHistory.profile_snapshot.id == profile_id_str
         ).count()
         
         return records, total_count
@@ -50,14 +70,15 @@ class CRUDNavigationHistory:
         Retorna (lista_registros, total_count).
         """
         skip = (page - 1) * page_size
+        profile_id_str = str(profile_id)
         
         records = await NavigationHistory.find(
-            NavigationHistory.profile.id == profile_id,
+            NavigationHistory.profile_snapshot.id == profile_id_str,
             NavigationHistory.blocked == True
         ).sort([("visited_at", -1)]).skip(skip).limit(page_size).to_list()
         
         total_count = await NavigationHistory.find(
-            NavigationHistory.profile.id == profile_id,
+            NavigationHistory.profile_snapshot.id == profile_id_str,
             NavigationHistory.blocked == True
         ).count()
         
@@ -65,8 +86,9 @@ class CRUDNavigationHistory:
     
     async def get_by_profile(self, profile_id: PydanticObjectId) -> List[NavigationHistory]:
         """Obtiene todo el historial de un perfil (sin paginación)."""
+        profile_id_str = str(profile_id)
         return await NavigationHistory.find(
-            NavigationHistory.profile.id == profile_id
+            NavigationHistory.profile_snapshot.id == profile_id_str
         ).sort([("visited_at", -1)]).to_list()
     
     async def get_by_id(self, navigation_id: PydanticObjectId) -> Optional[NavigationHistory]:
@@ -75,8 +97,9 @@ class CRUDNavigationHistory:
     
     async def delete_by_profile(self, profile_id: PydanticObjectId) -> bool:
         """Elimina todo el historial de un perfil."""
+        profile_id_str = str(profile_id)
         result = await NavigationHistory.find(
-            NavigationHistory.profile.id == profile_id
+            NavigationHistory.profile_snapshot.id == profile_id_str
         ).delete()
         
         return result.deleted_count > 0
@@ -113,6 +136,23 @@ class CRUDNavigationHistory:
         if not profile:
             raise ValueError("Perfil no encontrado")
         
+        # Obtener datos del usuario para el snapshot
+        await profile.fetch_link(ManagedProfile.manager_user)
+        user = profile.manager_user
+        
+        # Crear snapshots desnormalizados
+        profile_snapshot = ProfileSnapshot(
+            id=str(profile.id),
+            name=profile.name,
+            profile_token=profile.token
+        )
+        
+        user_snapshot = UserSnapshot(
+            id=str(user.id),
+            email=user.email,
+            username=user.username
+        )
+        
         blocked = False
         blocking_rule_snapshot = None
         
@@ -147,6 +187,8 @@ class CRUDNavigationHistory:
         
         navigation = NavigationHistory(
             profile=profile,
+            profile_snapshot=profile_snapshot,
+            user_snapshot=user_snapshot,
             visited_url=visited_url,
             blocked=blocked,
             blocking_rule_snapshot=blocking_rule_snapshot
@@ -154,5 +196,44 @@ class CRUDNavigationHistory:
         
         await navigation.create()
         return navigation
+    
+    async def get_user_history_paginated(
+        self, 
+        user_id: PydanticObjectId, 
+        page: int = 1, 
+        page_size: int = 10,
+        blocked_only: bool = False
+    ) -> Tuple[List[NavigationHistory], int]:
+        """
+        Obtiene el historial paginado de todos los perfiles de un usuario.
+        Usa los datos desnormalizados para mayor eficiencia.
+        """
+        skip = (page - 1) * page_size
+        user_id_str = str(user_id)
+        
+        # Construir filtros
+        filters = [NavigationHistory.user_snapshot.id == user_id_str]
+        if blocked_only:
+            filters.append(NavigationHistory.blocked == True)
+        
+        records = await NavigationHistory.find(*filters).sort([("visited_at", -1)]).skip(skip).limit(page_size).to_list()
+        total_count = await NavigationHistory.find(*filters).count()
+        
+        return records, total_count
+    
+    async def get_user_blocked_count(self, user_id: PydanticObjectId) -> int:
+        """Obtiene el número total de URLs bloqueadas para un usuario."""
+        user_id_str = str(user_id)
+        return await NavigationHistory.find(
+            NavigationHistory.user_snapshot.id == user_id_str,
+            NavigationHistory.blocked == True
+        ).count()
+    
+    async def get_user_total_navigation_count(self, user_id: PydanticObjectId) -> int:
+        """Obtiene el número total de navegaciones para un usuario."""
+        user_id_str = str(user_id)
+        return await NavigationHistory.find(
+            NavigationHistory.user_snapshot.id == user_id_str
+        ).count()
 
 navigation_history_crud = CRUDNavigationHistory()

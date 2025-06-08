@@ -3,6 +3,7 @@ from beanie import Document, Link
 from pydantic import BaseModel, Field
 from datetime import datetime
 from enum import Enum
+from urllib.parse import urlparse
 
 # Importaciones directas para evitar problemas circulares
 from app.models.managed_profile_model import ManagedProfile
@@ -44,25 +45,49 @@ class RuleSnapshot(BaseModel):
             }
         }
 
+class ProfileSnapshot(BaseModel):
+    """Datos del perfil desnormalizados."""
+    id: str
+    name: str
+    profile_token: str
+
+class UserSnapshot(BaseModel):
+    """Datos del usuario dueño del perfil."""
+    id: str
+    email: str
+    username: Optional[str] = None
+
 class NavigationHistory(Document):
     """
-    Modelo para el historial de navegación de perfiles.
+    Historial de navegación optimizado para tu sistema.
     
-    Registra cada visita a una URL por parte de un perfil,
-    incluyendo información sobre bloqueos aplicados con snapshot
-    de la regla para preservar el contexto histórico.
+    Incluye solo los datos que necesitas, desnormalizados
+    para evitar múltiples consultas.
     """
+    # Referencia original (mantener para integridad)
     profile: Link[ManagedProfile]
+    
+    # Datos desnormalizados - lo esencial
+    profile_snapshot: ProfileSnapshot
+    user_snapshot: UserSnapshot
+    
+    # Datos de navegación
     visited_at: datetime = Field(default_factory=datetime.utcnow)
     visited_url: str
+    
+    # Datos de bloqueo (tu lógica actual)
     blocked: bool = False
     blocking_rule_snapshot: Optional[RuleSnapshot] = None
     
     class Settings:
         collection = "profile_navigation_history"
         indexes = [
-            [("profile", 1), ("visited_at", -1)],
-            [("profile", 1), ("blocked", 1)],
+            # Índices esenciales para tus consultas
+            [("user_snapshot.id", 1), ("visited_at", -1)],
+            [("profile_snapshot.id", 1), ("visited_at", -1)],
+            [("blocked", 1), ("visited_at", -1)],
+            # Índice compuesto para dashboards
+            [("user_snapshot.id", 1), ("blocked", 1), ("visited_at", -1)],
         ]
 
 # Schemas para requests del cliente (extensión)
@@ -100,27 +125,27 @@ class NavigationHistoryReadWithDetails(NavigationHistoryRead):
     blocking_rule_snapshot: Optional[RuleSnapshot] = None  # Snapshot en lugar de referencia
 
 class NavigationHistoryResponse(BaseModel):
-    """Esquema de respuesta para el frontend."""
+    """Respuesta optimizada con todos los datos en una consulta."""
     id: str
     visited_url: str
     blocked: bool
-    manaded_profile_id: str
     visited_at: str
+    
+    # Datos del perfil (sin más consultas)
+    profile_id: str
+    profile_name: str
+    
+    # Datos del usuario (sin más consultas)
+    user_id: str
+    user_email: str
+    user_username: Optional[str] = None
+    
+    # Datos de la regla (si hay bloqueo)
     blocking_rule_id: Optional[str] = None
     blocking_rule_name: Optional[str] = None
+    blocking_rule_type: Optional[str] = None
+    blocking_rule_value: Optional[str] = None
     blocking_rule_description: Optional[str] = None
     
     class Config:
         populate_by_name = True
-        json_schema_extra = {
-            "example": {
-                "id": "507f1f77bcf86cd799439011",
-                "visited_url": "https://example.com/page",
-                "blocked": True,
-                "manaded_profile_id": "507f1f77bcf86cd799439012", 
-                "visited_at": "2025-06-04T10:30:00.000Z",
-                "blocking_rule_id": "507f1f77bcf86cd799439013",
-                "blocking_rule_name": "Bloqueo Redes Sociales",
-                "blocking_rule_description": "Bloquea acceso a Facebook durante horario escolar"
-            }
-        }

@@ -38,35 +38,41 @@ class NavigationHistoryService:
             
             items = []
             for record in records:
-                profile_ref_id = None
-                try:
-                    if record.profile:
-                        profile_ref_id = str(record.profile.to_ref().id)
-                except Exception:
-                    profile_ref_id = str(profile_object_id)
+                # Usar datos desnormalizados del snapshot en lugar de hacer consultas
+                profile_id = record.profile_snapshot.id
+                profile_name = record.profile_snapshot.name
+                user_id = record.user_snapshot.id
+                user_email = record.user_snapshot.email
+                user_username = record.user_snapshot.username
                 
+                # Datos de la regla de bloqueo (si hay)
                 blocking_rule_id = None
                 blocking_rule_name = None
+                blocking_rule_type = None
+                blocking_rule_value = None
                 blocking_rule_description = None
                 
-                try:
-                    if record.blocking_rule_snapshot:
-                        blocking_rule_id = record.blocking_rule_snapshot.id
-                        blocking_rule_name = record.blocking_rule_snapshot.name
-                        blocking_rule_description = record.blocking_rule_snapshot.description
-                except Exception:
-                    blocking_rule_id = None
-                    blocking_rule_name = None
-                    blocking_rule_description = None
+                if record.blocking_rule_snapshot:
+                    blocking_rule_id = record.blocking_rule_snapshot.id
+                    blocking_rule_name = record.blocking_rule_snapshot.name
+                    blocking_rule_type = record.blocking_rule_snapshot.rule_type
+                    blocking_rule_value = record.blocking_rule_snapshot.rule_value
+                    blocking_rule_description = record.blocking_rule_snapshot.description
                 
                 response_item = NavigationHistoryResponse(
                     id=str(record.id),
                     visited_url=record.visited_url,
                     blocked=record.blocked,
-                    manaded_profile_id=profile_ref_id or str(profile_object_id),
                     visited_at=record.visited_at.isoformat(),
+                    profile_id=profile_id,
+                    profile_name=profile_name,
+                    user_id=user_id,
+                    user_email=user_email,
+                    user_username=user_username,
                     blocking_rule_id=blocking_rule_id,
                     blocking_rule_name=blocking_rule_name,
+                    blocking_rule_type=blocking_rule_type,
+                    blocking_rule_value=blocking_rule_value,
                     blocking_rule_description=blocking_rule_description
                 )
                 
