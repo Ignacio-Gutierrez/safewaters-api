@@ -109,13 +109,17 @@ class CRUDNavigationHistory:
         Crea un snapshot de una regla de bloqueo.
         Preserva todos los datos relevantes de la regla en el momento del bloqueo.
         """
+        from datetime import datetime
+        
+        created_at = getattr(blocking_rule, 'created_at', None) or datetime.utcnow()
+        
         return RuleSnapshot(
             id=str(blocking_rule.id),
             name=blocking_rule.name,
             rule_type=blocking_rule.rule_type,
             rule_value=blocking_rule.rule_value,
             description=blocking_rule.description,
-            created_at=blocking_rule.created_at
+            created_at=created_at
         )
 
     async def create_from_profile_id_without_user_check(
