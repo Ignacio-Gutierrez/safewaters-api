@@ -1,6 +1,6 @@
 from typing import Optional, TYPE_CHECKING
 from beanie import Document, Link
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from enum import Enum
 from urllib.parse import urlparse
@@ -31,7 +31,15 @@ class RuleSnapshot(BaseModel):
     rule_type: RuleType
     rule_value: str
     description: Optional[str] = None
-    created_at: datetime
+    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def validate_created_at(cls, v):
+        """Asegura que created_at tenga un valor válido."""
+        if v is None:
+            return datetime.utcnow()
+        return v
     
     class Config:
         json_schema_extra = {
