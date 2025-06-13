@@ -20,7 +20,8 @@ class ManagedProfile(Document):
         indexes = [
             [("token", 1)],
             [("manager_user", 1)],
-            [("name", 1), ("manager_user", 1)] 
+            [("manager_user", 1), ("created_at", -1)],
+            [("name", 1), ("manager_user", 1)]  
         ]
     
     @staticmethod

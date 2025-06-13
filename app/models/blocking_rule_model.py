@@ -31,7 +31,8 @@ class BlockingRule(Document):
     class Settings:
         collection = "blocking_rules"
         indexes = [
-            [("profile", 1), ("active", 1)],
+            [("profile", 1), ("active", 1), ("rule_type", 1)],
+            [("profile", 1), ("created_at", -1)]
         ]
 
 # Esquemas Pydantic
