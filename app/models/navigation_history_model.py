@@ -90,12 +90,12 @@ class NavigationHistory(Document):
     class Settings:
         collection = "profile_navigation_history"
         indexes = [
-            # Índices esenciales para tus consultas
             [("user_snapshot.id", 1), ("visited_at", -1)],
             [("profile_snapshot.id", 1), ("visited_at", -1)],
             [("blocked", 1), ("visited_at", -1)],
-            # Índice compuesto para dashboards
             [("user_snapshot.id", 1), ("blocked", 1), ("visited_at", -1)],
+            [("profile_snapshot.id", 1), ("blocked", 1), ("visited_at", -1)],
+            [("visited_at", -1)],
         ]
 
 # Schemas para requests del cliente (extensión)
