@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Path
 from typing import List
 from app.api.services.managed_profile_service import managed_profile_service
-from app.models.managed_profile_model import ManagedProfileCreate, ManagedProfileRead, ManagedProfileReadWithStats
+from app.models.managed_profile_model import ManagedProfileCreate, ManagedProfileRead, ManagedProfileReadWithStats, ManagedProfile
 from app.models.user_model import User
 from app.core.security import get_current_user
+from app.schemas.token import TokenValidationRequest, TokenValidationResponse
 
 router = APIRouter()
 
@@ -72,6 +73,47 @@ async def delete_managed_profile(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=error_message
         )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
+
+@router.post("/validate-token", response_model=TokenValidationResponse)
+async def validate_token(request: TokenValidationRequest):
+    """
+    Valida un token de perfil para uso por la extensión.
+    
+    - **token**: Token del perfil a validar
+    
+    No requiere autenticación ya que es usado por la extensión del navegador.
+    """
+    try:
+        if not request.token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Token is required"
+            )
+        
+        profile = await ManagedProfile.find_one({"token": request.token})
+        
+        if not profile:
+            return TokenValidationResponse(
+                valid=False,
+                profile=None
+            )
+        
+        return TokenValidationResponse(
+            valid=True,
+            profile={
+                "id": str(profile.id),
+                "name": profile.name,
+                "token": profile.token
+            }
+        )
+        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
