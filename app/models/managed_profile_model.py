@@ -18,7 +18,6 @@ class ManagedProfile(Document):
     class Settings:
         collection = "managed_profiles"
         indexes = [
-            [("token", 1)],
             [("manager_user", 1)],
             [("manager_user", 1), ("created_at", -1)],
             [("name", 1), ("manager_user", 1)]  
