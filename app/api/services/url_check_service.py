@@ -10,7 +10,7 @@ from app.utils.external_apis.threatfox import check_threatfox
 from app.utils.external_apis.urlscanio import check_urlscanio
 from app.utils.domain_utils import get_ip_from_url, get_domain_from_url
 
-async def check_url(url: str) -> dict:
+async def check_url(url: str, user_has_checking_enabled: bool = True) -> dict:
     """Verifica si una URL es maliciosa consultando varias fuentes.
 
     Esta función sigue los siguientes pasos:
@@ -31,6 +31,15 @@ async def check_url(url: str) -> dict:
             * ``source`` (str): La fuente que determinó el estado (Cache, URLScan.io, etc.).
     """
     domain = get_domain_from_url(url)
+
+    # Verificar si el usuario tiene habilitada la verificación de URLs
+    if not user_has_checking_enabled:
+        return {
+            "domain": domain,
+            "malicious": False,
+            "info": "Verificación de URLs deshabilitada para este perfil",
+            "source": "Profile Settings"
+        }
 
     # 1. Revisar el caché
     cached_result = get_from_cache(domain)
@@ -149,8 +158,8 @@ async def check_and_record_url(profile_token: str, url: str) -> dict:
                 "blocking_rule_details": blocking_details
             }
         
-        # 4. Si no está bloqueada, verificar contra APIs de seguridad
-        security_result = await check_url(url)
+        # 4. Si no está bloqueada, verificar contra APIs de seguridad (si está habilitado en el perfil)
+        security_result = await check_url(url, profile.url_checking_enabled)
         
         return {
             "domain": security_result["domain"],
