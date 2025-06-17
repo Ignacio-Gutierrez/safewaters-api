@@ -13,6 +13,7 @@ class ManagedProfile(Document):
     token: Indexed(str, unique=True)
     manager_user: Link[User]
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    url_checking_enabled: bool = Field(default=True, description="Si está habilitada la verificación de URLs para este perfil")
     
     class Settings:
         collection = "managed_profiles"
@@ -42,11 +43,13 @@ class ManagedProfileBase(BaseModel):
 
 class ManagedProfileCreate(ManagedProfileBase):
     """Esquema para crear un nuevo perfil gestionado."""
+    url_checking_enabled: bool = Field(default=True, description="Si está habilitada la verificación de URLs")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "name": "Perfil Administrado X",
+                "url_checking_enabled": True
             }
         }
 
@@ -55,6 +58,7 @@ class ManagedProfileRead(ManagedProfileBase):
     id: str = Field(alias="_id")
     token: str
     created_at: datetime
+    url_checking_enabled: bool
     
     class Config:
         populate_by_name = True
@@ -75,4 +79,5 @@ class ManagedProfileReadWithStats(ManagedProfileRead):
         populate_by_name = True
 
 class ManagedProfileUpdate(BaseModel):
-    pass
+    """Esquema para actualizar un perfil gestionado."""
+    url_checking_enabled: Optional[bool] = None

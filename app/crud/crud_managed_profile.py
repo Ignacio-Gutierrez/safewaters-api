@@ -1,6 +1,6 @@
 from typing import List, Optional
 from beanie import PydanticObjectId
-from app.models.managed_profile_model import ManagedProfile, ManagedProfileCreate
+from app.models.managed_profile_model import ManagedProfile, ManagedProfileCreate, ManagedProfileUpdate
 from app.models.user_model import User
 
 class CRUDManagedProfile:
@@ -20,7 +20,8 @@ class CRUDManagedProfile:
         profile = ManagedProfile(
             name=profile_data.name,
             token=token,
-            manager_user=manager_user
+            manager_user=manager_user,
+            url_checking_enabled=profile_data.url_checking_enabled
         )
         
         await profile.create()
@@ -62,6 +63,7 @@ class CRUDManagedProfile:
                         "token": profile.token,
                         "manager_user": {"$id": manager_user_id} if manager_user_id else None,
                         "created_at": profile.created_at,
+                        "url_checking_enabled": profile.url_checking_enabled,
                         "blocking_rules_count": rules_count
                     }
                     result.append(profile_dict)
@@ -80,6 +82,7 @@ class CRUDManagedProfile:
                         "token": profile.token,
                         "manager_user": {"$id": manager_user_id} if manager_user_id else None,
                         "created_at": profile.created_at,
+                        "url_checking_enabled": profile.url_checking_enabled,
                         "blocking_rules_count": 0
                     }
                     result.append(profile_dict)
@@ -121,6 +124,24 @@ class CRUDManagedProfile:
         
         await profile.delete()
         return True
+    
+    async def update(self, profile_id: PydanticObjectId, profile_update: ManagedProfileUpdate, user_id: PydanticObjectId) -> Optional[ManagedProfile]:
+        """Actualiza un perfil gestionado."""
+        profile = await ManagedProfile.find_one(
+            ManagedProfile.id == profile_id,
+            ManagedProfile.manager_user.id == user_id
+        )
+        
+        if not profile:
+            return None
+        
+        update_data = profile_update.model_dump(exclude_unset=True)
+        if update_data:
+            for field, value in update_data.items():
+                setattr(profile, field, value)
+            await profile.save()
+        
+        return profile
     
     async def check_ownership(self, profile_id: PydanticObjectId, user_id: PydanticObjectId) -> bool:
         """Verifica si un perfil pertenece a un usuario específico."""

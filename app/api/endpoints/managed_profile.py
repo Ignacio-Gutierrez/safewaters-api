@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Path
 from typing import List
 from app.api.services.managed_profile_service import managed_profile_service
-from app.models.managed_profile_model import ManagedProfileCreate, ManagedProfileRead, ManagedProfileReadWithStats, ManagedProfile
+from app.models.managed_profile_model import ManagedProfileCreate, ManagedProfileRead, ManagedProfileReadWithStats, ManagedProfile, ManagedProfileUpdate, ManagedProfileUpdate
 from app.models.user_model import User
 from app.core.security import get_current_user
 from app.schemas.token import TokenValidationRequest, TokenValidationResponse
@@ -44,6 +44,32 @@ async def get_my_profiles(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al obtener los perfiles"
+        )
+
+@router.patch("/{profile_id}", response_model=ManagedProfileRead)
+async def update_managed_profile(
+    profile_id: str = Path(..., description="ID del perfil a actualizar"),
+    profile_update: ManagedProfileUpdate = ...,
+    current_user: User = Depends(get_current_user)
+) -> ManagedProfileRead:
+    """
+    Actualiza un perfil gestionado.
+    
+    - **profile_id**: ID del perfil a actualizar
+    - **name**: Nuevo nombre del perfil (opcional)
+    - **url_checking_enabled**: Habilita o deshabilita la verificación de URLs (opcional)
+    """
+    try:
+        return await managed_profile_service.update_profile(profile_id, profile_update, current_user)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
         )
 
 @router.delete("/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
