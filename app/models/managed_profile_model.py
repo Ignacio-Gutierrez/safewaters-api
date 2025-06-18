@@ -3,7 +3,7 @@ import uuid
 from typing import Optional, List, TYPE_CHECKING
 from beanie import Document, Indexed, Link
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.user_model import User
 
@@ -12,7 +12,7 @@ class ManagedProfile(Document):
     name: str
     token: Indexed(str, unique=True)
     manager_user: Link[User]
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     url_checking_enabled: bool = Field(default=True, description="Si está habilitada la verificación de URLs para este perfil")
     
     class Settings:

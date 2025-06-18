@@ -1,14 +1,14 @@
 from typing import List, Optional
 from beanie import Document, Indexed
 from pydantic import BaseModel, EmailStr, Field
-from datetime import datetime
+from datetime import datetime, timezone
 
 class User(Document):
     """Modelo de usuario para autenticación y gestión."""
     username: Indexed(str, unique=True)
     email: Indexed(str, unique=True) 
     password_hash: str
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     class Settings:
         collection = "users"
@@ -51,9 +51,6 @@ class UserRead(UserBase):
 
     class Config:
         populate_by_name = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
 
 class UserReadWithDetails(UserRead):
     """Esquema con detalles adicionales."""

@@ -1,7 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 from beanie import Document, Link
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 # Importación directa para evitar problemas de referencia circular
@@ -25,7 +25,7 @@ class BlockingRule(Document):
     rule_type: RuleType
     rule_value: str
     active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     description: Optional[str] = None
     
     class Settings:
