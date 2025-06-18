@@ -109,9 +109,14 @@ class CRUDNavigationHistory:
         Crea un snapshot de una regla de bloqueo.
         Preserva todos los datos relevantes de la regla en el momento del bloqueo.
         """
-        from datetime import datetime
+        from datetime import datetime, timezone
         
-        created_at = getattr(blocking_rule, 'created_at', None) or datetime.utcnow()
+        created_at = getattr(blocking_rule, 'created_at', None)
+        if created_at is None:
+            created_at = datetime.now(timezone.utc)
+        elif created_at.tzinfo is None:
+            # Si no tiene zona horaria, asumimos UTC
+            created_at = created_at.replace(tzinfo=timezone.utc)
         
         return RuleSnapshot(
             id=str(blocking_rule.id),

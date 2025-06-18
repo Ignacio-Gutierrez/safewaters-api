@@ -1,9 +1,28 @@
 import math
+import logging
 from beanie import PydanticObjectId
 from app.crud.crud_navigation_history import navigation_history_crud
 from app.models.navigation_history_model import NavigationHistoryResponse
 from app.models.pagination_model import PaginatedResponse
 from app.models.user_model import User
+from datetime import timezone
+
+logger = logging.getLogger(__name__)
+
+def format_utc_datetime(dt):
+    """Asegura que las fechas UTC se serialicen con 'Z' al final."""
+    if dt is None:
+        return None
+    
+    # Si no tiene timezone, asumimos UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    # Si tiene otra timezone, convertir a UTC
+    elif dt.tzinfo != timezone.utc:
+        dt = dt.astimezone(timezone.utc)
+    
+    # Formatear con Z al final
+    return dt.isoformat().replace('+00:00', 'Z')
 
 class NavigationHistoryService:
     """Servicio para gestionar historial de navegación."""
@@ -38,6 +57,12 @@ class NavigationHistoryService:
             
             items = []
             for record in records:
+                # Log de debug para verificar fechas
+                logger.info(f"🔍 DB fecha original: {record.visited_at}")
+                logger.info(f"🔍 DB timezone info: {record.visited_at.tzinfo}")
+                formatted_date = format_utc_datetime(record.visited_at)
+                logger.info(f"🔍 Fecha formateada para frontend: {formatted_date}")
+                
                 # Usar datos desnormalizados del snapshot en lugar de hacer consultas
                 profile_id = record.profile_snapshot.id
                 profile_name = record.profile_snapshot.name
@@ -63,7 +88,7 @@ class NavigationHistoryService:
                     id=str(record.id),
                     visited_url=record.visited_url,
                     blocked=record.blocked,
-                    visited_at=record.visited_at.isoformat(),
+                    visited_at=format_utc_datetime(record.visited_at),  # Asegurar que tenga 'Z'
                     profile_id=profile_id,
                     profile_name=profile_name,
                     user_id=user_id,
@@ -75,6 +100,14 @@ class NavigationHistoryService:
                     blocking_rule_value=blocking_rule_value,
                     blocking_rule_description=blocking_rule_description
                 )
+                
+                # 🔍 Debug: Log de fechas en la API
+                print(f"🔍 API DEBUG - Record ID: {record.id}")
+                print(f"  📥 visited_at desde DB: {record.visited_at}")
+                print(f"  📥 visited_at tipo: {type(record.visited_at)}")
+                print(f"  📥 visited_at timezone: {record.visited_at.tzinfo}")
+                print(f"  📤 visited_at serializado: {record.visited_at.isoformat()}")
+                print("---")
                 
                 items.append(response_item)
             
@@ -117,7 +150,7 @@ class NavigationHistoryService:
                 "success": True,
                 "blocked": navigation.blocked,
                 "visited_url": navigation.visited_url,
-                "visited_at": navigation.visited_at.isoformat(),
+                "visited_at": format_utc_datetime(navigation.visited_at),  # Asegurar que tenga 'Z'
                 "navigation_id": str(navigation.id),
                 "message": "URL bloqueada por reglas de filtrado" if navigation.blocked else "Navegación registrada"
             }

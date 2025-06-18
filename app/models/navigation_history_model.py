@@ -1,7 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 from beanie import Document, Link
 from pydantic import BaseModel, Field, field_validator
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from urllib.parse import urlparse
 
@@ -31,14 +31,17 @@ class RuleSnapshot(BaseModel):
     rule_type: RuleType
     rule_value: str
     description: Optional[str] = None
-    created_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
+    created_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     @field_validator('created_at', mode='before')
     @classmethod
     def validate_created_at(cls, v):
-        """Asegura que created_at tenga un valor válido."""
+        """Asegura que created_at tenga un valor válido con zona horaria UTC."""
         if v is None:
-            return datetime.utcnow()
+            return datetime.now(timezone.utc)
+        # Si es un datetime sin zona horaria, asumimos que es UTC
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
         return v
     
     class Config:
@@ -80,7 +83,7 @@ class NavigationHistory(Document):
     user_snapshot: UserSnapshot
     
     # Datos de navegación
-    visited_at: datetime = Field(default_factory=datetime.utcnow)
+    visited_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     visited_url: str
     
     # Datos de bloqueo (tu lógica actual)
