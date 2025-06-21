@@ -13,7 +13,7 @@ from app.database import init_database, close_database
 app = FastAPI(
     title="SafeWaters API",
     description="API para detección de amenazas y control parental",
-    version="0.6.0"
+    version="1.0.0"
 )
 """
 Instancia principal de la aplicación FastAPI.
@@ -22,7 +22,7 @@ Configurada con un título, descripción y versión para la documentación autom
 
 :title: SafeWaters API
 :description: API para detección de amenazas y control parental.
-:version: 0.6.0
+:version: 1.0.0
 """
 
 @app.on_event("startup")
