@@ -191,7 +191,6 @@ class CRUDNavigationHistory:
                     break
                     
         except Exception as e:
-            print(f"Error checking blocking rules: {e}")
             pass
         
         navigation = NavigationHistory(

@@ -38,7 +38,6 @@ async def shutdown_event():
     Cierra limpiamente la conexión a MongoDB.
     """
     await close_database()
-    print("Conexión a MongoDB cerrada.")
 
 origins = [
     "*" # Permite todos los orígenes (para desarrollo)

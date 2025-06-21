@@ -91,7 +91,6 @@ class CRUDManagedProfile:
             return result
             
         except Exception as e:
-            print(f"Error in get_by_user_with_stats: {e}")
             raise e
     
     async def get_by_id(self, profile_id: PydanticObjectId) -> Optional[ManagedProfile]:
