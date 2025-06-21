@@ -1,5 +1,5 @@
 # SafeWaters API
 
-Versión: **v0.5.0** (MVP)
+Versión: **v1.0.0**
 
-Esta es la primera versión funcional de la API para la detección de amenazas en sitios web. Incluye integración con APIs externas, endpoints básicos y estructura mínima para el funcionamiento de SafeWaters.
+API completa para detección de amenazas y control parental. Versión estable lista para producción con integración con múltiples APIs de seguridad, gestión de perfiles, reglas de bloqueo, historial de navegación y autenticación de usuarios.

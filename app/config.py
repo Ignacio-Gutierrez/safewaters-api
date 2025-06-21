@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     ABUSEIPDB_API_KEY: str
     ABUSEIPDB_API_URL: str
 
+    MONGODB_URL: str
+    DATABASE_NAME: str
+
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
     class Config:
         env_file = ".env"
 

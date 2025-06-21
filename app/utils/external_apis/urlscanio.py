@@ -8,8 +8,8 @@ Utiliza la configuración de la aplicación para obtener la clave API y la URL b
 from app.config import settings
 import httpx
 
-from app.models.urls import URLResponse
-from app.models.url_urlscanio import URLScanioResponse, ResultItem
+from app.schemas.urls_check import URLResponse
+from app.utils.external_api_models.urlscanio_model import URLScanioResponse, ResultItem
 
 URLSCANIO_API_KEY = settings.URLSCANIO_API_KEY
 URLSCANIO_API_URL = settings.URLSCANIO_API_URL
