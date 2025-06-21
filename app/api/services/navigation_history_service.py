@@ -57,11 +57,7 @@ class NavigationHistoryService:
             
             items = []
             for record in records:
-                # Log de debug para verificar fechas
-                logger.info(f"🔍 DB fecha original: {record.visited_at}")
-                logger.info(f"🔍 DB timezone info: {record.visited_at.tzinfo}")
                 formatted_date = format_utc_datetime(record.visited_at)
-                logger.info(f"🔍 Fecha formateada para frontend: {formatted_date}")
                 
                 # Usar datos desnormalizados del snapshot en lugar de hacer consultas
                 profile_id = record.profile_snapshot.id
@@ -100,15 +96,6 @@ class NavigationHistoryService:
                     blocking_rule_value=blocking_rule_value,
                     blocking_rule_description=blocking_rule_description
                 )
-                
-                # 🔍 Debug: Log de fechas en la API
-                print(f"🔍 API DEBUG - Record ID: {record.id}")
-                print(f"  📥 visited_at desde DB: {record.visited_at}")
-                print(f"  📥 visited_at tipo: {type(record.visited_at)}")
-                print(f"  📥 visited_at timezone: {record.visited_at.tzinfo}")
-                print(f"  📤 visited_at serializado: {record.visited_at.isoformat()}")
-                print("---")
-                
                 items.append(response_item)
             
             total_pages = math.ceil(total_count / page_size) if total_count > 0 else 0
