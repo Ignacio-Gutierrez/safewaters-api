@@ -8,9 +8,9 @@ from app.utils.cache import get_from_cache, set_to_cache
 from app.utils.external_apis.abuseipdb import check_abuseipdb
 from app.utils.external_apis.threatfox import check_threatfox
 from app.utils.external_apis.urlscanio import check_urlscanio
-from app.utils.utils import get_ip_from_url, get_domain_from_url
+from app.utils.domain_utils import get_ip_from_url, get_domain_from_url
 
-async def check_url(url: str) -> dict:
+async def check_url(url: str, user_has_checking_enabled: bool = True) -> dict:
     """Verifica si una URL es maliciosa consultando varias fuentes.
 
     Esta función sigue los siguientes pasos:
@@ -31,6 +31,15 @@ async def check_url(url: str) -> dict:
             * ``source`` (str): La fuente que determinó el estado (Cache, URLScan.io, etc.).
     """
     domain = get_domain_from_url(url)
+
+    # Verificar si el usuario tiene habilitada la verificación de URLs
+    if not user_has_checking_enabled:
+        return {
+            "domain": domain,
+            "malicious": False,
+            "info": "Verificación de URLs deshabilitada para este perfil",
+            "source": "Profile Settings"
+        }
 
     # 1. Revisar el caché
     cached_result = get_from_cache(domain)
@@ -95,3 +104,73 @@ async def check_url(url: str) -> dict:
         "info": "No se detectaron señales de peligro en fuentes consultadas.",
         "source": "Multi-API"
     }
+
+
+async def check_and_record_url(profile_token: str, url: str) -> dict:
+    """
+    Verifica una URL contra reglas de bloqueo y APIs de seguridad, y registra la navegación.
+    
+    Flujo unificado para la extensión del navegador que:
+    1. Registra la navegación (siempre se ejecuta)
+    2. Si fue bloqueada por regla de usuario, retorna información de bloqueo
+    3. Si no está bloqueada, verifica contra APIs de seguridad
+    4. Retorna resultado completo en formato URLResponse
+    
+    Args:
+        profile_token (str): Token del perfil que realiza la navegación
+        url (str): URL completa visitada
+        
+    Returns:
+        dict: Diccionario compatible con URLResponse que incluye:
+            - Información de verificación de seguridad
+            - Estado de bloqueo por reglas de usuario
+            (La navegación se registra internamente pero no se incluye en la respuesta)
+    """
+    try:
+        from app.crud.crud_managed_profile import managed_profile_crud
+        from app.crud.crud_navigation_history import navigation_history_crud
+        
+        # 1. Validar perfil
+        profile = await managed_profile_crud.get_by_token(profile_token)
+        if not profile:
+            raise ValueError("Token de perfil no válido")
+        
+        # 2. Registrar navegación (siempre se ejecuta)
+        navigation = await navigation_history_crud.create_from_profile_id_without_user_check(
+            str(profile.id), 
+            url
+        )
+        
+        domain = get_domain_from_url(url)
+        
+        # 3. Si fue bloqueada por regla de usuario
+        if navigation.blocked:
+            blocking_details = "URL bloqueada por reglas del perfil"
+            if navigation.blocking_rule_snapshot:
+                blocking_details = f"Bloqueado por regla {navigation.blocking_rule_snapshot.rule_type}: {navigation.blocking_rule_snapshot.rule_value}"
+            
+            return {
+                "domain": domain,
+                "malicious": False,  # No se verificó contra APIs porque está bloqueada
+                "info": "URL bloqueada por reglas de filtrado del perfil",
+                "source": "User Rules",
+                "is_blocked_by_user_rule": True,
+                "blocking_rule_details": blocking_details
+            }
+        
+        # 4. Si no está bloqueada, verificar contra APIs de seguridad (si está habilitado en el perfil)
+        security_result = await check_url(url, profile.url_checking_enabled)
+        
+        return {
+            "domain": security_result["domain"],
+            "malicious": security_result["malicious"],
+            "info": security_result["info"],
+            "source": security_result["source"],
+            "is_blocked_by_user_rule": False,
+            "blocking_rule_details": None
+        }
+        
+    except ValueError as e:
+        raise ValueError(str(e))
+    except Exception as e:
+        raise Exception(f"Error al verificar y registrar URL: {str(e)}")
