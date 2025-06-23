@@ -173,22 +173,38 @@ class CRUDNavigationHistory:
             
             parsed_url = urlparse(visited_url)
             domain = parsed_url.netloc.lower()
+            full_url = visited_url.lower()
             
             for rule in rules:
                 rule_value = rule.rule_value.lower()
                 
-                if rule.rule_type == "DOMAIN" and domain == rule_value:
-                    blocked = True
-                    blocking_rule_snapshot = self._create_rule_snapshot(rule)
-                    break
-                elif rule.rule_type == "URL" and visited_url.lower() == rule_value:
-                    blocked = True
-                    blocking_rule_snapshot = self._create_rule_snapshot(rule)
-                    break
-                elif rule.rule_type == "KEYWORD" and rule_value in visited_url.lower():
-                    blocked = True
-                    blocking_rule_snapshot = self._create_rule_snapshot(rule)
-                    break
+                # DOMAIN: Bloquea el dominio exacto y todos sus subdominios
+                if rule.rule_type == "DOMAIN":
+                    if domain == rule_value or domain.endswith('.' + rule_value):
+                        blocked = True
+                        blocking_rule_snapshot = self._create_rule_snapshot(rule)
+                        break
+                
+                # URL: Bloquea rutas específicas dentro de un dominio (más granular)
+                elif rule.rule_type == "URL":
+                    # Para URL, verificamos que coincida exactamente o sea un prefijo de ruta
+                    # Esto permite bloquear secciones específicas de un sitio
+                    if full_url == rule_value:
+                        blocked = True
+                        blocking_rule_snapshot = self._create_rule_snapshot(rule)
+                        break
+                    # Si la regla termina con /, permitir coincidencias de prefijo
+                    elif rule_value.endswith('/') and full_url.startswith(rule_value):
+                        blocked = True
+                        blocking_rule_snapshot = self._create_rule_snapshot(rule)
+                        break
+                
+                # KEYWORD: Busca la palabra clave en toda la URL (más útil)
+                elif rule.rule_type == "KEYWORD":
+                    if rule_value in full_url:
+                        blocked = True
+                        blocking_rule_snapshot = self._create_rule_snapshot(rule)
+                        break
                     
         except Exception as e:
             pass
