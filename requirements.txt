@@ -1,20 +1,14 @@
-# SafeWaters API - v0.5.0-dev
+# SafeWaters API - v1.0.0
 fastapi[standard]
 uvicorn[standard]
-python-memcached == 1.62
-pydantic-settings
-httpx
+python-memcached==1.62
+pydantic-settings==2.10.0
+httpx==0.28.1
 
 # Database
-pymongo[srv]==3.12
-motor
-beanie
+pymongo[srv]==4.6.0
+motor==3.7.1
+beanie==1.30.0
 
-sqlmodel
-pyjwt
+PyJWT==2.10.1
 passlib[bcrypt]
-
-# SafeWaters API - v1.0.0-documentation
-sphinx
-sphinx-rtd-theme
-sphinx-autodoc-typehints
