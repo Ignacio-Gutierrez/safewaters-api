@@ -23,3 +23,24 @@ async def create_user(user_create: UserCreate) -> User:
     user = User(**user_data)
     await user.insert()
     return user
+
+async def update_user_password(user_id: str, hashed_password: str) -> bool:
+    """
+    Actualiza la contraseña de un usuario.
+    
+    Args:
+        user_id: ID del usuario
+        hashed_password: Contraseña ya hasheada
+        
+    Returns:
+        bool: True si se actualizó correctamente
+    """
+    try:
+        user = await User.get(user_id)
+        if user:
+            user.password_hash = hashed_password
+            await user.save()
+            return True
+        return False
+    except Exception:
+        return False
