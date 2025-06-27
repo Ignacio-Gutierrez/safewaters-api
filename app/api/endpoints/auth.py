@@ -4,12 +4,18 @@ Módulo de endpoints para la autenticación y registro de usuarios.
 Proporciona rutas para:
 - Registrar nuevos usuarios.
 - Iniciar sesión y obtener un token de acceso JWT.
+- Recuperación de contraseña por correo electrónico.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.models.user_model import UserCreate, UserRead
 from app.schemas.token import Token
+from app.schemas.password_reset import (
+    PasswordResetRequest, 
+    PasswordResetConfirm, 
+    PasswordResetResponse
+)
 
 from app.core.security import (
     create_access_token,
@@ -19,6 +25,7 @@ from app.core.security import (
 
 from app.crud import crud_user
 from app.api.services import user_service
+from app.services.password_reset_service import password_reset_service
 
 router = APIRouter()
 """
@@ -103,3 +110,70 @@ async def login_for_access_token(
         data={"sub": user.email} 
     )
     return Token(access_token=access_token, token_type="bearer")
+
+
+@router.post("/request-password-reset", response_model=PasswordResetResponse)
+async def request_password_reset(request: PasswordResetRequest) -> PasswordResetResponse:
+    """
+    Solicita recuperación de contraseña por correo electrónico.
+    
+    Envía un correo con un enlace para restablecer la contraseña.
+    Siempre retorna éxito por seguridad (no revela si el email existe).
+    
+    - **email**: Dirección de correo electrónico del usuario
+    """
+    try:
+        await password_reset_service.request_password_reset(request.email)
+        
+        return PasswordResetResponse(
+            success=True,
+            message="Si tu email está registrado, recibirás instrucciones para recuperar tu contraseña"
+        )
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error en solicitud de recuperación: {e}")
+        
+        return PasswordResetResponse(
+            success=True,
+            message="Si tu email está registrado, recibirás instrucciones para recuperar tu contraseña"
+        )
+
+
+@router.post("/reset-password", response_model=PasswordResetResponse)
+async def reset_password(request: PasswordResetConfirm) -> PasswordResetResponse:
+    """
+    Restablece la contraseña usando un token de recuperación.
+    
+    El token se obtiene del correo de recuperación enviado previamente.
+    
+    - **token**: Token de recuperación recibido por email
+    - **new_password**: Nueva contraseña (debe cumplir requisitos de seguridad)
+    """
+    try:
+        success, message = await password_reset_service.reset_password(
+            request.token, 
+            request.new_password
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=message
+            )
+        
+        return PasswordResetResponse(
+            success=True,
+            message=message
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Error en reseteo de contraseña: {e}")
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno del servidor"
+        )
