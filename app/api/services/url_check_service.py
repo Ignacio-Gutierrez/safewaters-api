@@ -52,15 +52,15 @@ async def check_url(url: str, user_has_checking_enabled: bool = True) -> dict:
         }
     
     # 2. Consultar URLScan.io
-    urlscanio_result = await check_urlscanio(domain)
-    if urlscanio_result.malicious:
-        set_to_cache(domain, urlscanio_result.malicious, urlscanio_result.info)
-        return {
-            "domain": domain,
-            "malicious": urlscanio_result.malicious,
-            "info": urlscanio_result.info,
-            "source": urlscanio_result.source
-        }
+    # urlscanio_result = await check_urlscanio(domain)
+    # if urlscanio_result.malicious:
+    #     set_to_cache(domain, urlscanio_result.malicious, urlscanio_result.info)
+    #     return {
+    #         "domain": domain,
+    #         "malicious": urlscanio_result.malicious,
+    #         "info": urlscanio_result.info,
+    #         "source": urlscanio_result.source
+    #     }
     
     # 3. Consultar ThreatFox
     threatfox_result = await check_threatfox(domain)
