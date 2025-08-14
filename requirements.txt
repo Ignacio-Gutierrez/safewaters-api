@@ -7,7 +7,6 @@ httpx==0.28.1
 
 # Database
 pymongo[srv]==4.9.2
-motor==3.7.1
 beanie==1.30.0
 
 PyJWT==2.10.1

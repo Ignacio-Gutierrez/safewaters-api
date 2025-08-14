@@ -2,11 +2,11 @@
 Módulo de configuración y gestión de la base de datos MongoDB.
 
 Este módulo se encarga de establecer la conexión con MongoDB
-utilizando Motor (async MongoDB driver) y Beanie (ODM).
+utilizando PyMongo async (nuevo API asíncrono oficial) y Beanie (ODM).
 Proporciona funciones para inicializar la base de datos y configurar
 los modelos Document para MongoDB.
 """
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.asynchronous.mongo_client import AsyncMongoClient
 from beanie import init_beanie
 from app.config import settings
 import logging
@@ -30,7 +30,7 @@ Ejemplo: ``"safewaters"``.
 """
 
 # Cliente MongoDB global
-mongodb_client: AsyncIOMotorClient = None
+mongodb_client: AsyncMongoClient = None
 """
 Cliente global de MongoDB.
 
@@ -50,8 +50,8 @@ async def init_database():
     global mongodb_client
     
     try:
-        # Crear cliente MongoDB
-        mongodb_client = AsyncIOMotorClient(MONGODB_URL)
+        # Crear cliente MongoDB con la nueva API asíncrona
+        mongodb_client = AsyncMongoClient(MONGODB_URL)
         
         # Seleccionar base de datos
         database = mongodb_client[DATABASE_NAME]
@@ -93,5 +93,5 @@ async def close_database():
     """
     global mongodb_client
     if mongodb_client:
-        mongodb_client.close()
+        await mongodb_client.close()
         logger.info("Conexión a MongoDB cerrada")
