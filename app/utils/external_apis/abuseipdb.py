@@ -45,7 +45,8 @@ async def check_abuseipdb(domain: str, ip_address: str) -> URLResponse:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(ABUSEIPDB_API_URL, headers=headers, params=querystring)
             response.raise_for_status()
-            parsed = AbuseIPDBResponse.parse_raw(response.text)
+            response_json = response.json()
+            parsed = AbuseIPDBResponse.model_validate(response_json)
             data = parsed.data
 
             return URLResponse(
