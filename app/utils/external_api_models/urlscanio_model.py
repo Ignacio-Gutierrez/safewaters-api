@@ -14,13 +14,13 @@ class TaskInfo(BaseModel):
     :ivar source: La fuente de la solicitud de escaneo.
     :vartype source: Optional[str]
     :ivar tags: Una lista de etiquetas asociadas con el escaneo (ej. "phishing").
-    :vartype tags: Optional[list[str]]
+    :vartype tags: Optional[List[str]]
     """
     url: Optional[str] = None
     domain: Optional[str] = None
     uuid: Optional[str] = None
     source: Optional[str] = None
-    tags: Optional[list[str]] = None
+    tags: Optional[List[str]] = None
 
 class PageInfo(BaseModel):
     """
@@ -30,6 +30,33 @@ class PageInfo(BaseModel):
     :vartype domain: Optional[str]
     """
     domain: Optional[str] = None
+
+class Verdicts(BaseModel):
+    """
+    Modelo para los verdicts de URLScan.io basado en la documentación oficial.
+    
+    :ivar malicious: Si la página es considerada maliciosa (boolean directo).
+    :vartype malicious: Optional[bool]
+    :ivar score: Score de maliciosidad de -100 (benigno) a 100 (malicioso).
+    :vartype score: Optional[int]
+    """
+    malicious: Optional[bool] = None
+    score: Optional[int] = None
+
+class Stats(BaseModel):
+    """
+    Modelo para estadísticas básicas del scan.
+    
+    :ivar uniqIPs: Número de IPs únicas contactadas.
+    :vartype uniqIPs: Optional[int]
+    :ivar requests: Número de subrequests realizadas.
+    :vartype requests: Optional[int]
+    :ivar uniqCountries: Número de países únicos contactados.
+    :vartype uniqCountries: Optional[int]
+    """
+    uniqIPs: Optional[int] = None
+    requests: Optional[int] = None
+    uniqCountries: Optional[int] = None
 
 class ResultItem(BaseModel):
     """
@@ -41,9 +68,15 @@ class ResultItem(BaseModel):
     :vartype task: TaskInfo
     :ivar page: Información sobre la página escaneada.
     :vartype page: Optional[PageInfo]
+    :ivar verdicts: Verdicts sobre contenido malicioso (simplificado según API Search).
+    :vartype verdicts: Optional[Verdicts]
+    :ivar stats: Estadísticas computadas del scan.
+    :vartype stats: Optional[Stats]
     """
     task: TaskInfo
     page: Optional[PageInfo] = None
+    verdicts: Optional[Verdicts] = None
+    stats: Optional[Stats] = None
 
 class URLScanioResponse(BaseModel):
     """
