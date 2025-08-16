@@ -15,13 +15,14 @@ async def check_url(url: str, user_has_checking_enabled: bool = True) -> dict:
 
     Esta función sigue los siguientes pasos:
     1. Revisa la caché para obtener resultados previos para el dominio.
-    2. Si no está en caché, consulta URLScan.io.
-    3. Si URLScan.io no lo marca como malicioso, consulta ThreatFox.
+    2. Si no está en caché, consulta URLScan.io (análisis específico de contenido web).
+    3. Si URLScan.io no lo marca como malicioso, consulta ThreatFox (IOCs con alta confianza).
     4. Si ThreatFox no lo marca como malicioso, obtiene la IP del dominio y consulta AbuseIPDB.
     5. Guarda el resultado final en caché.
 
     Args:
         url (str): La URL completa a verificar.
+        user_has_checking_enabled (bool): Si el usuario tiene habilitada la verificación de URLs.
 
     Returns:
         dict: Un diccionario con la siguiente estructura:
@@ -51,18 +52,20 @@ async def check_url(url: str, user_has_checking_enabled: bool = True) -> dict:
             "source": "Cache"
         }
     
-    # 2. Consultar URLScan.io
-    # urlscanio_result = await check_urlscanio(domain)
-    # if urlscanio_result.malicious:
-    #     set_to_cache(domain, urlscanio_result.malicious, urlscanio_result.info)
-    #     return {
-    #         "domain": domain,
-    #         "malicious": urlscanio_result.malicious,
-    #         "info": urlscanio_result.info,
-    #         "source": urlscanio_result.source
-    #     }
+    # 2. Consultar URLScan.io (Primera prioridad: análisis completo de URL/dominio)
+    # URLScan.io es la más específica para análisis web y tiene whitelist integrada
+    urlscanio_result = await check_urlscanio(domain)
+    if urlscanio_result.malicious:
+        set_to_cache(domain, urlscanio_result.malicious, urlscanio_result.info)
+        return {
+            "domain": domain,
+            "malicious": urlscanio_result.malicious,
+            "info": urlscanio_result.info,
+            "source": urlscanio_result.source
+        }
     
-    # 3. Consultar ThreatFox
+    # 3. Consultar ThreatFox (Segunda prioridad: IOCs específicos con alta confianza)
+    # ThreatFox es rápido y tiene IOCs específicos con niveles de confianza altos (≥75)
     threatfox_result = await check_threatfox(domain)
     if threatfox_result.malicious:
         set_to_cache(domain, threatfox_result.malicious, threatfox_result.info)
@@ -73,7 +76,8 @@ async def check_url(url: str, user_has_checking_enabled: bool = True) -> dict:
             "source": threatfox_result.source
         }
 
-    # 4. Consultar AbuseIPDB (requiere IP)
+    # 4. Consultar AbuseIPDB (Última prioridad: requiere resolución DNS adicional)
+    # AbuseIPDB requiere obtener la IP del dominio, es más lento pero complementario
     try:
         ip_address = await get_ip_from_url(domain)
     except Exception as e:
