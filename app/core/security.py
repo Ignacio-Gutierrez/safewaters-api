@@ -32,8 +32,13 @@ la migración automática de hashes si se cambian los esquemas en el futuro.
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+MAX_BCRYPT_LENGTH = 72
 MIN_PASSWORD_LENGTH = 8
 
+def truncate_password(password: str) -> str:
+    """Trunca la contraseña a 72 caracteres antes de usar bcrypt."""
+    return password[:MAX_BCRYPT_LENGTH]
+    
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verifica una contraseña en texto plano contra un hash almacenado.
@@ -45,7 +50,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     :return: ``True`` si la contraseña coincide, ``False`` en caso contrario.
     :rtype: bool
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(truncate_password(plain_password), hashed_password)
 
 def get_password_hash(password: str) -> str:
     """
@@ -56,7 +61,7 @@ def get_password_hash(password: str) -> str:
     :return: El hash de la contraseña.
     :rtype: str
     """
-    return pwd_context.hash(password)
+    return pwd_context.hash(truncate_password(password))
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
