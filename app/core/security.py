@@ -2,32 +2,42 @@
 Módulo de seguridad para la gestión de contraseñas y tokens JWT.
 
 Este módulo proporciona funciones para:
-- Verificar y hashear contraseñas utilizando ``passlib``.
+- Verificar y hashear contraseñas utilizando ``passlib`` con ``bcrypt_sha256`` (evita la limitación de 72 bytes).
 - Crear y decodificar tokens de acceso JWT (JSON Web Tokens).
 - Validar la fortaleza de las contraseñas.
 - Obtener el usuario actual a partir de un token JWT para la autenticación de endpoints.
 """
-from passlib.context import CryptContext
+import os
+import hmac
+import hashlib
+import re
+import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-import re
-import jwt
+from passlib.context import CryptContext
 from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
-
-from app.config import settings
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from app.schemas.token import TokenPayload 
+from app.config import settings
+from app.schemas.token import TokenPayload
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(
+    schemes=["bcrypt_sha256", "bcrypt"],
+    deprecated="auto",
+    bcrypt__ident="2b",
+    bcrypt__truncate_error=False,
+)
 """
 Contexto de Passlib para el hashing de contraseñas.
 
-Utiliza el esquema ``bcrypt``. La opción ``deprecated="auto"`` permite
-la migración automática de hashes si se cambian los esquemas en el futuro.
+Utiliza los esquemas ``bcrypt_sha256`` y ``bcrypt`` para mantener compatibilidad
+con hashes antiguos y evitar la limitación de 72 bytes. ``deprecated="auto"`` 
+permite la migración automática de hashes si se cambia el esquema en el futuro.
 """
+
+PEPPER = os.getenv("AUTH_PEPPER", "")
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
@@ -35,9 +45,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 MAX_BCRYPT_LENGTH = 72
 MIN_PASSWORD_LENGTH = 8
 
-def truncate_password(password: str) -> str:
-    """Trunca la contraseña a 72 caracteres antes de usar bcrypt."""
-    return password[:MAX_BCRYPT_LENGTH]
+def _pepperize(password: str) -> str:
+    """
+    Aplica HMAC-SHA256 con una "pepper" si está configurada.
+
+    Esto convierte la contraseña en un hash intermedio de longitud fija (64 caracteres),
+    evitando problemas de longitud y fortaleciendo la seguridad del hash.
+    """
+    if not PEPPER:
+        return password
+    digest = hmac.new(PEPPER.encode("utf-8"), password.encode("utf-8"), hashlib.sha256).hexdigest()
+    return digest
     
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
@@ -50,18 +68,21 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     :return: ``True`` si la contraseña coincide, ``False`` en caso contrario.
     :rtype: bool
     """
-    return pwd_context.verify(truncate_password(plain_password), hashed_password)
+    return pwd_context.verify(_pepperize(plain_password), hashed_password)
 
 def get_password_hash(password: str) -> str:
     """
     Genera el hash de una contraseña utilizando el contexto de Passlib.
+
+    Utiliza ``bcrypt_sha256`` para evitar la limitación de longitud de bcrypt
+    y mantener la compatibilidad con esquemas antiguos.
 
     :param password: La contraseña en texto plano a hashear.
     :type password: str
     :return: El hash de la contraseña.
     :rtype: str
     """
-    return pwd_context.hash(truncate_password(password))
+    return pwd_context.hash(_pepperize(password))
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
