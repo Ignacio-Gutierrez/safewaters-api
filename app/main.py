@@ -40,6 +40,7 @@ async def shutdown_event():
     await close_database()
 
 origins = [
+    "*",
     "https://safewaters-dashboard-production.up.railway.app",
     # "chrome-extension://<ID_DE_EXTENSION>"
 ]
