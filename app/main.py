@@ -13,7 +13,7 @@ from app.database import init_database, close_database
 app = FastAPI(
     title="SafeWaters API",
     description="API para detección de amenazas y control parental",
-    version="1.0.0"
+    version="1.0.1"
 )
 """
 Instancia principal de la aplicación FastAPI.
@@ -22,7 +22,7 @@ Configurada con un título, descripción y versión para la documentación autom
 
 :title: SafeWaters API
 :description: API para detección de amenazas y control parental.
-:version: 1.0.0
+:version: 1.0.1
 """
 
 @app.on_event("startup")
@@ -40,8 +40,8 @@ async def shutdown_event():
     await close_database()
 
 origins = [
-    "*" # Permite todos los orígenes (para desarrollo)
-    # "chrome-extension://<ID_DE_TU_EXTENSION>"
+    "https://safewaters-dashboard-production.up.railway.app",
+    # "chrome-extension://<ID_DE_EXTENSION>"
 ]
 """
 Lista de orígenes permitidos para las solicitudes CORS (Cross-Origin Resource Sharing).
