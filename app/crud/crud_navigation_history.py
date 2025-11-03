@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple
 from beanie import PydanticObjectId
 from app.models.navigation_history_model import NavigationHistory, NavigationHistoryCreate, RuleSnapshot, ProfileSnapshot, UserSnapshot
 from app.models.managed_profile_model import ManagedProfile
+from app.models.user_model import User
 
 class CRUDNavigationHistory:
     """CRUD operations para NavigationHistory."""
@@ -9,8 +10,12 @@ class CRUDNavigationHistory:
     async def create(self, navigation_data: NavigationHistoryCreate, profile: ManagedProfile) -> NavigationHistory:
         """Crea un nuevo registro de navegación."""
         # Obtener datos del usuario para el snapshot
-        await profile.fetch_link(ManagedProfile.manager_user)
-        user = profile.manager_user
+        if not profile.manager_user or not profile.manager_user.id:
+             raise ValueError("El perfil no tiene un manager_user asociado")
+        
+        user = await User.get(profile.manager_user.id)
+        if not user:
+            raise ValueError(f"No se encontró el usuario manager con id {profile.manager_user.id}")
         
         # Crear snapshots desnormalizados
         profile_snapshot = ProfileSnapshot(
@@ -146,8 +151,13 @@ class CRUDNavigationHistory:
             raise ValueError("Perfil no encontrado")
         
         # Obtener datos del usuario para el snapshot
-        await profile.fetch_link(ManagedProfile.manager_user)
-        user = profile.manager_user
+        if not profile.manager_user or not profile.manager_user.id:
+             raise ValueError("El perfil no tiene un manager_user asociado")
+        
+        user = await User.get(profile.manager_user.id)
+        if not user:
+            raise ValueError(f"No se encontró el usuario manager con id {profile.manager_user.id}")
+        # --- FIN DE LA CORRECCIÓN ---
         
         # Crear snapshots desnormalizados
         profile_snapshot = ProfileSnapshot(
