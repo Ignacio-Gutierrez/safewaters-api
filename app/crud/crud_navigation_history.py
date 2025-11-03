@@ -10,12 +10,14 @@ class CRUDNavigationHistory:
     async def create(self, navigation_data: NavigationHistoryCreate, profile: ManagedProfile) -> NavigationHistory:
         """Crea un nuevo registro de navegación."""
         # Obtener datos del usuario para el snapshot
-        if not profile.manager_user or not profile.manager_user.id:
+        if not profile.manager_user:
              raise ValueError("El perfil no tiene un manager_user asociado")
         
-        user = await User.get(profile.manager_user.id)
+        user_id = profile.manager_user.to_ref().id
+        user = await User.get(user_id)
+        
         if not user:
-            raise ValueError(f"No se encontró el usuario manager con id {profile.manager_user.id}")
+            raise ValueError(f"No se encontró el usuario manager con id {user_id}")
         
         # Crear snapshots desnormalizados
         profile_snapshot = ProfileSnapshot(
@@ -151,13 +153,14 @@ class CRUDNavigationHistory:
             raise ValueError("Perfil no encontrado")
         
         # Obtener datos del usuario para el snapshot
-        if not profile.manager_user or not profile.manager_user.id:
+        if not profile.manager_user:
              raise ValueError("El perfil no tiene un manager_user asociado")
         
-        user = await User.get(profile.manager_user.id)
+        user_id = profile.manager_user.to_ref().id
+        user = await User.get(user_id)
+
         if not user:
-            raise ValueError(f"No se encontró el usuario manager con id {profile.manager_user.id}")
-        # --- FIN DE LA CORRECCIÓN ---
+            raise ValueError(f"No se encontró el usuario manager con id {user_id}")
         
         # Crear snapshots desnormalizados
         profile_snapshot = ProfileSnapshot(
